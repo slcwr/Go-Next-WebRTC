@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -10,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"todolist/internal/controller"
-	"todolist/internal/middleware"
-	"todolist/internal/repository"
-	"todolist/internal/service"
+	"todolist/internal/adapter/http/handler"
+	"todolist/internal/adapter/http/middleware"
+	"todolist/internal/adapter/repository"
+	"todolist/internal/application/usecase"
 	"todolist/pkg/database"
 )
 
@@ -26,10 +25,15 @@ func main() {
 	}
 	defer db.Close()
 
-	// 依存関係の初期化
-	todoRepo := repository.NewTodoRepository(db)
-	todoService := service.NewTodoService(todoRepo)
-	todoController := controller.NewTodoController(todoService)
+	// 依存関係の初期化（Hexagonal Architecture）
+	// Adapter層: Repository
+	todoRepo := repository.NewMySQLTodoRepository(db)
+
+	// Application層: UseCase
+	todoUsecase := usecase.NewTodoUsecase(todoRepo)
+
+	// Adapter層: HTTP Handler
+	todoHandler := handler.NewTodoHandler(todoUsecase)
 
 	// ルーティング設定
 	mux := http.NewServeMux()
@@ -48,9 +52,9 @@ func main() {
 	mux.HandleFunc("/api/todos", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			todoController.GetTodos(w, r)
+			todoHandler.GetTodos(w, r)
 		case http.MethodPost:
-			todoController.CreateTodo(w, r)
+			todoHandler.CreateTodo(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -59,11 +63,11 @@ func main() {
 	mux.HandleFunc("/api/todos/", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			todoController.GetTodo(w, r)
+			todoHandler.GetTodo(w, r)
 		case http.MethodPut:
-			todoController.UpdateTodo(w, r)
+			todoHandler.UpdateTodo(w, r)
 		case http.MethodDelete:
-			todoController.DeleteTodo(w, r)
+			todoHandler.DeleteTodo(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}

@@ -1,4 +1,4 @@
-package controller
+package handler
 
 import (
 	"encoding/json"
@@ -6,110 +6,111 @@ import (
 	"strconv"
 	"strings"
 
-	"todolist/internal/model"
-	"todolist/internal/service"
+	"todolist/internal/adapter/http/dto"
+	"todolist/internal/application/usecase"
+	"todolist/internal/domain/entity"
 )
 
-type TodoController struct {
-	todoService *service.TodoService
+// TodoHandler はTodoのHTTPハンドラー
+type TodoHandler struct {
+	usecase *usecase.TodoUsecase
 }
 
-func NewTodoController(todoService *service.TodoService) *TodoController {
-	return &TodoController{todoService: todoService}
+// NewTodoHandler はTodoHandlerのコンストラクタ
+func NewTodoHandler(usecase *usecase.TodoUsecase) *TodoHandler {
+	return &TodoHandler{usecase: usecase}
 }
 
 // GetTodos は全てのTodoを取得する
-func (c *TodoController) GetTodos(w http.ResponseWriter, r *http.Request) {
-	todos,err := c.service.GetAllTodos(r.Context())
+func (h *TodoHandler) GetTodos(w http.ResponseWriter, r *http.Request) {
+	todos, err := h.usecase.GetAllTodos(r.Context())
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to fetch todos")
 		return
 	}
-	respondWithJSON(w, http.StatusOK, todos)
+	respondWithJSON(w, http.StatusOK, dto.FromEntities(todos))
 }
 
 // GetTodo は指定されたIDのTodoを取得する
-func (c *TodoController) GetTodo(w http.ResponseWriter, r *http.Request) {
+func (h *TodoHandler) GetTodo(w http.ResponseWriter, r *http.Request) {
 	id, err := extractID(r.URL.Path)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid todo ID")
 		return
 	}
-	
-	todo, err := c.service.GetTodoByID(r.Context(), id)
+
+	todo, err := h.usecase.GetTodoByID(r.Context(), id)
 	if err != nil {
-		if err == service.ErrTodoNotFound {
+		if err == entity.ErrTodoNotFound {
 			respondWithError(w, http.StatusNotFound, "Todo not found")
 			return
 		}
 		respondWithError(w, http.StatusInternalServerError, "Failed to fetch todo")
 		return
 	}
-	respondWithJSON(w, http.StatusOK, todo)
+	respondWithJSON(w, http.StatusOK, dto.FromEntity(todo))
 }
 
 // CreateTodo は新しいTodoを作成する
-func (c *TodoController) CreateTodo(w http.ResponseWriter, r *http.Request) {
-	var req model.CreateTodoRequest // リクエストボディ用の構造体
-	if err := json.NewDecoder(r.Body).Decode(&todo); err != nil {
+func (h *TodoHandler) CreateTodo(w http.ResponseWriter, r *http.Request) {
+	var req dto.CreateTodoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	// バリデーション
-	if req.Title == "" {
-		respondWithError(w, http.StatusBadRequest, "Title is required")
-		return
-	}
 
-	todo,err := c.service.CreateTodo(r.Context(), &req)
+	todo, err := h.usecase.CreateTodo(r.Context(), req.Title, req.Description)
 	if err != nil {
+		if err == entity.ErrTitleRequired || err == entity.ErrTitleTooLong {
+			respondWithError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		respondWithError(w, http.StatusInternalServerError, "Failed to create todo")
 		return
 	}
-	respondWithJSON(w, http.StatusCreated, todo)
+	respondWithJSON(w, http.StatusCreated, dto.FromEntity(todo))
 }
 
 // UpdateTodo は指定されたIDのTodoを更新する
-func (c *TodoController) UpdateTodo(w http.ResponseWriter, r *http.Request) {
+func (h *TodoHandler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 	id, err := extractID(r.URL.Path)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid todo ID")
 		return
 	}
-	
-	var req model.UpdateTodoRequest // リクエストボディ用の構造体
+
+	var req dto.UpdateTodoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	// バリデーション
-	if req.Title == "" {
-		respondWithError(w, http.StatusBadRequest, "Title is required")
-		return
-	}
-	
-	todo, err := c.service.UpdateTodo(r.Context(), id, &req)
+
+	todo, err := h.usecase.UpdateTodo(r.Context(), id, req.Title, req.Description, req.Completed)
 	if err != nil {
-		if err == service.ErrTodoNotFound {
+		if err == entity.ErrTodoNotFound {
 			respondWithError(w, http.StatusNotFound, "Todo not found")
+			return
+		}
+		if err == entity.ErrTitleRequired || err == entity.ErrTitleTooLong {
+			respondWithError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		respondWithError(w, http.StatusInternalServerError, "Failed to update todo")
 		return
 	}
-	respondWithJSON(w, http.StatusOK, todo)
+	respondWithJSON(w, http.StatusOK, dto.FromEntity(todo))
 }
 
 // DeleteTodo は指定されたIDのTodoを削除する
-func (c *TodoController) DeleteTodo(w http.ResponseWriter, r *http.Request) {
+func (h *TodoHandler) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 	id, err := extractID(r.URL.Path)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid todo ID")
 		return
 	}
 
-	if err := c.service.DeleteTodo(r.Context(), id); err != nil {
-		if err == service.ErrTodoNotFound {
+	if err := h.usecase.DeleteTodo(r.Context(), id); err != nil {
+		if err == entity.ErrTodoNotFound {
 			respondWithError(w, http.StatusNotFound, "Todo not found")
 			return
 		}
@@ -122,10 +123,9 @@ func (c *TodoController) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 
 // extractID はURLパスからIDを抽出する
 func extractID(path string) (int, error) {
-	// "/api/todos/123" から "123" を取得
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	if len(parts) < 3 {
-		return 0, service.ErrTodoNotFound
+		return 0, entity.ErrTodoNotFound
 	}
 	return strconv.Atoi(parts[len(parts)-1])
 }

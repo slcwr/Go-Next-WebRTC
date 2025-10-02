@@ -3,40 +3,35 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"errors"
-	
-	"todolist/internal/model"
+
+	"todolist/internal/domain/entity"
 )
 
-// カスタムエラー
-var (
-	ErrNotFound = errors.New("record not found")
-)
-
-//TodoRepository はTodoのデータアクセスを扱う
-type TodoRepository struct {
+// MySQLTodoRepository はMySQLを使ったTodoRepositoryの実装
+type MySQLTodoRepository struct {
 	db *sql.DB
 }
 
-// NewTodoRepository はTodoRepositoryのコンストラクタ
-func NewTodoRepository(db *sql.DB) *TodoRepository {
-	return &TodoRepository{db: db}
+// NewMySQLTodoRepository はMySQLTodoRepositoryのコンストラクタ
+func NewMySQLTodoRepository(db *sql.DB) *MySQLTodoRepository {
+	return &MySQLTodoRepository{db: db}
 }
 
 // FindAll は全てのTodoを取得する
-func (r *TodoRepository) FindAll(ctx context.Context) ([]*model.Todo, error) {
-	query := `SELECT id, title, description, completed, created_at, updated_at 
+func (r *MySQLTodoRepository) FindAll(ctx context.Context) ([]*entity.Todo, error) {
+	query := `SELECT id, title, description, completed, created_at, updated_at
 			  FROM todos
 			  ORDER BY created_at DESC`
+
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var todos []*model.Todo
+	var todos []*entity.Todo
 	for rows.Next() {
-		todo := &model.Todo{}
+		todo := &entity.Todo{}
 		err := rows.Scan(
 			&todo.ID,
 			&todo.Title,
@@ -59,14 +54,14 @@ func (r *TodoRepository) FindAll(ctx context.Context) ([]*model.Todo, error) {
 }
 
 // FindByID は指定されたIDのTodoを取得する
-func (r *TodoRepository) FindByID(ctx context.Context, id int) (*model.Todo, error) {
+func (r *MySQLTodoRepository) FindByID(ctx context.Context, id int) (*entity.Todo, error) {
 	query := `
 		SELECT id, title, description, completed, created_at, updated_at
 		FROM todos
 		WHERE id = ?
 	`
 
-	todo := &model.Todo{}
+	todo := &entity.Todo{}
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&todo.ID,
 		&todo.Title,
@@ -78,7 +73,7 @@ func (r *TodoRepository) FindByID(ctx context.Context, id int) (*model.Todo, err
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrNotFound
+			return nil, entity.ErrTodoNotFound
 		}
 		return nil, err
 	}
@@ -86,8 +81,18 @@ func (r *TodoRepository) FindByID(ctx context.Context, id int) (*model.Todo, err
 	return todo, nil
 }
 
-// Create は新しいTodoを作成する
-func (r *TodoRepository) Create(ctx context.Context, todo *model.Todo) error {
+// Save は新しいTodoを作成または既存のTodoを更新する
+func (r *MySQLTodoRepository) Save(ctx context.Context, todo *entity.Todo) error {
+	if todo.ID == 0 {
+		// 新規作成
+		return r.create(ctx, todo)
+	}
+	// 更新
+	return r.update(ctx, todo)
+}
+
+// create は新しいTodoを作成する
+func (r *MySQLTodoRepository) create(ctx context.Context, todo *entity.Todo) error {
 	query := `
 		INSERT INTO todos (title, description, completed)
 		VALUES (?, ?, ?)
@@ -109,8 +114,8 @@ func (r *TodoRepository) Create(ctx context.Context, todo *model.Todo) error {
 	`, id).Scan(&todo.CreatedAt, &todo.UpdatedAt)
 }
 
-// Update は既存のTodoを更新する
-func (r *TodoRepository) Update(ctx context.Context, todo *model.Todo) error {
+// update は既存のTodoを更新する
+func (r *MySQLTodoRepository) update(ctx context.Context, todo *entity.Todo) error {
 	query := `
 		UPDATE todos
 		SET title = ?, description = ?, completed = ?
@@ -127,14 +132,13 @@ func (r *TodoRepository) Update(ctx context.Context, todo *model.Todo) error {
 		return err
 	}
 
-	// 更新された行数を確認
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}
 
 	if rowsAffected == 0 {
-		return ErrNotFound
+		return entity.ErrTodoNotFound
 	}
 
 	// 更新されたタイムスタンプを取得
@@ -144,7 +148,7 @@ func (r *TodoRepository) Update(ctx context.Context, todo *model.Todo) error {
 }
 
 // Delete は指定されたIDのTodoを削除する
-func (r *TodoRepository) Delete(ctx context.Context, id int) error {
+func (r *MySQLTodoRepository) Delete(ctx context.Context, id int) error {
 	query := `DELETE FROM todos WHERE id = ?`
 
 	result, err := r.db.ExecContext(ctx, query, id)
@@ -152,14 +156,13 @@ func (r *TodoRepository) Delete(ctx context.Context, id int) error {
 		return err
 	}
 
-	// 削除された行数を確認
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}
 
 	if rowsAffected == 0 {
-		return ErrNotFound
+		return entity.ErrTodoNotFound
 	}
 
 	return nil
