@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/go:1-1.22-bookworm
+    volumes:
+      - ../:/workspace:cached
+    command: sleep infinity
+    network_mode: service:mysql
+    environment:
+      - DB_DSN=root:password@tcp(localhost:3306)/todolist?parseTime=true
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: todolist
+      MYSQL_USER: todouser
+      MYSQL_PASSWORD: userpassword
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ../backend/database/migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3306:3306"
+      - "8080:8080"
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mysql-data:
