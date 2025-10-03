@@ -26,4 +26,22 @@ func (rt *RefreshToken) IsExpired() bool {
 	return time.Now().After(rt.ExpiresAt)
 }
 
+type PasswordResetToken struct {
+	ID        int64     `json:"id"`
+	UserID    int64     `json:"user_id"`
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Used      bool      `json:"used"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// IsExpired トークンの有効期限をチェック
+func (prt *PasswordResetToken) IsExpired() bool {
+	return time.Now().After(prt.ExpiresAt)
+}
+
+// IsValid トークンが有効かチェック
+func (prt *PasswordResetToken) IsValid() bool {
+	return !prt.Used && !prt.IsExpired()
+}
 
