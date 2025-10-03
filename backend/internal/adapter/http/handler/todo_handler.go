@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"todolist/internal/adapter/http/dto"
+	"todolist/internal/adapter/http/middleware"
 	"todolist/internal/application/usecase"
 	"todolist/internal/domain/entity"
 )
@@ -23,7 +24,13 @@ func NewTodoHandler(usecase *usecase.TodoUsecase) *TodoHandler {
 
 // GetTodos は全てのTodoを取得する
 func (h *TodoHandler) GetTodos(w http.ResponseWriter, r *http.Request) {
-	todos, err := h.usecase.GetAllTodos(r.Context())
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	todos, err := h.usecase.GetAllTodos(r.Context(), userID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to fetch todos")
 		return
@@ -33,13 +40,19 @@ func (h *TodoHandler) GetTodos(w http.ResponseWriter, r *http.Request) {
 
 // GetTodo は指定されたIDのTodoを取得する
 func (h *TodoHandler) GetTodo(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
 	id, err := extractID(r.URL.Path)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid todo ID")
 		return
 	}
 
-	todo, err := h.usecase.GetTodoByID(r.Context(), id)
+	todo, err := h.usecase.GetTodoByID(r.Context(), id, userID)
 	if err != nil {
 		if err == entity.ErrTodoNotFound {
 			respondWithError(w, http.StatusNotFound, "Todo not found")
@@ -53,13 +66,19 @@ func (h *TodoHandler) GetTodo(w http.ResponseWriter, r *http.Request) {
 
 // CreateTodo は新しいTodoを作成する
 func (h *TodoHandler) CreateTodo(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
 	var req dto.CreateTodoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
-	todo, err := h.usecase.CreateTodo(r.Context(), req.Title, req.Description)
+	todo, err := h.usecase.CreateTodo(r.Context(), userID, req.Title, req.Description)
 	if err != nil {
 		if err == entity.ErrTitleRequired || err == entity.ErrTitleTooLong {
 			respondWithError(w, http.StatusBadRequest, err.Error())
@@ -73,6 +92,12 @@ func (h *TodoHandler) CreateTodo(w http.ResponseWriter, r *http.Request) {
 
 // UpdateTodo は指定されたIDのTodoを更新する
 func (h *TodoHandler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
 	id, err := extractID(r.URL.Path)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid todo ID")
@@ -85,7 +110,7 @@ func (h *TodoHandler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	todo, err := h.usecase.UpdateTodo(r.Context(), id, req.Title, req.Description, req.Completed)
+	todo, err := h.usecase.UpdateTodo(r.Context(), id, userID, req.Title, req.Description, req.Completed)
 	if err != nil {
 		if err == entity.ErrTodoNotFound {
 			respondWithError(w, http.StatusNotFound, "Todo not found")
@@ -103,13 +128,19 @@ func (h *TodoHandler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 
 // DeleteTodo は指定されたIDのTodoを削除する
 func (h *TodoHandler) DeleteTodo(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
 	id, err := extractID(r.URL.Path)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid todo ID")
 		return
 	}
 
-	if err := h.usecase.DeleteTodo(r.Context(), id); err != nil {
+	if err := h.usecase.DeleteTodo(r.Context(), id, userID); err != nil {
 		if err == entity.ErrTodoNotFound {
 			respondWithError(w, http.StatusNotFound, "Todo not found")
 			return

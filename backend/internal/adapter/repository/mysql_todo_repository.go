@@ -17,13 +17,14 @@ func NewMySQLTodoRepository(db *sql.DB) *MySQLTodoRepository {
 	return &MySQLTodoRepository{db: db}
 }
 
-// FindAll は全てのTodoを取得する
-func (r *MySQLTodoRepository) FindAll(ctx context.Context) ([]*entity.Todo, error) {
-	query := `SELECT id, title, description, completed, created_at, updated_at
+// FindAllByUserID は指定されたユーザーの全てのTodoを取得する
+func (r *MySQLTodoRepository) FindAllByUserID(ctx context.Context, userID int64) ([]*entity.Todo, error) {
+	query := `SELECT id, user_id, title, description, completed, created_at, updated_at
 			  FROM todos
+			  WHERE user_id = ?
 			  ORDER BY created_at DESC`
 
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -34,6 +35,7 @@ func (r *MySQLTodoRepository) FindAll(ctx context.Context) ([]*entity.Todo, erro
 		todo := &entity.Todo{}
 		err := rows.Scan(
 			&todo.ID,
+			&todo.UserID,
 			&todo.Title,
 			&todo.Description,
 			&todo.Completed,
@@ -53,17 +55,18 @@ func (r *MySQLTodoRepository) FindAll(ctx context.Context) ([]*entity.Todo, erro
 	return todos, nil
 }
 
-// FindByID は指定されたIDのTodoを取得する
-func (r *MySQLTodoRepository) FindByID(ctx context.Context, id int) (*entity.Todo, error) {
+// FindByIDAndUserID は指定されたIDとユーザーIDのTodoを取得する
+func (r *MySQLTodoRepository) FindByIDAndUserID(ctx context.Context, id int, userID int64) (*entity.Todo, error) {
 	query := `
-		SELECT id, title, description, completed, created_at, updated_at
+		SELECT id, user_id, title, description, completed, created_at, updated_at
 		FROM todos
-		WHERE id = ?
+		WHERE id = ? AND user_id = ?
 	`
 
 	todo := &entity.Todo{}
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	err := r.db.QueryRowContext(ctx, query, id, userID).Scan(
 		&todo.ID,
+		&todo.UserID,
 		&todo.Title,
 		&todo.Description,
 		&todo.Completed,
@@ -94,10 +97,10 @@ func (r *MySQLTodoRepository) Save(ctx context.Context, todo *entity.Todo) error
 // create は新しいTodoを作成する
 func (r *MySQLTodoRepository) create(ctx context.Context, todo *entity.Todo) error {
 	query := `
-		INSERT INTO todos (title, description, completed)
-		VALUES (?, ?, ?)
+		INSERT INTO todos (user_id, title, description, completed)
+		VALUES (?, ?, ?, ?)
 	`
-	result, err := r.db.ExecContext(ctx, query, todo.Title, todo.Description, todo.Completed)
+	result, err := r.db.ExecContext(ctx, query, todo.UserID, todo.Title, todo.Description, todo.Completed)
 	if err != nil {
 		return err
 	}
@@ -119,7 +122,7 @@ func (r *MySQLTodoRepository) update(ctx context.Context, todo *entity.Todo) err
 	query := `
 		UPDATE todos
 		SET title = ?, description = ?, completed = ?
-		WHERE id = ?
+		WHERE id = ? AND user_id = ?
 	`
 
 	result, err := r.db.ExecContext(ctx, query,
@@ -127,6 +130,7 @@ func (r *MySQLTodoRepository) update(ctx context.Context, todo *entity.Todo) err
 		todo.Description,
 		todo.Completed,
 		todo.ID,
+		todo.UserID,
 	)
 	if err != nil {
 		return err
@@ -147,11 +151,11 @@ func (r *MySQLTodoRepository) update(ctx context.Context, todo *entity.Todo) err
 	`, todo.ID).Scan(&todo.UpdatedAt)
 }
 
-// Delete は指定されたIDのTodoを削除する
-func (r *MySQLTodoRepository) Delete(ctx context.Context, id int) error {
-	query := `DELETE FROM todos WHERE id = ?`
+// DeleteByIDAndUserID は指定されたIDとユーザーIDのTodoを削除する
+func (r *MySQLTodoRepository) DeleteByIDAndUserID(ctx context.Context, id int, userID int64) error {
+	query := `DELETE FROM todos WHERE id = ? AND user_id = ?`
 
-	result, err := r.db.ExecContext(ctx, query, id)
+	result, err := r.db.ExecContext(ctx, query, id, userID)
 	if err != nil {
 		return err
 	}

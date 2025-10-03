@@ -16,22 +16,22 @@ func NewTodoUsecase(repo port.TodoRepository) *TodoUsecase {
 	return &TodoUsecase{repo: repo}
 }
 
-// GetAllTodos は全てのTodoを取得する
-func (u *TodoUsecase) GetAllTodos(ctx context.Context) ([]*entity.Todo, error) {
-	return u.repo.FindAll(ctx)
+// GetAllTodos は指定されたユーザーの全てのTodoを取得する
+func (u *TodoUsecase) GetAllTodos(ctx context.Context, userID int64) ([]*entity.Todo, error) {
+	return u.repo.FindAllByUserID(ctx, userID)
 }
 
-// GetTodoByID は指定されたIDのTodoを取得する
-func (u *TodoUsecase) GetTodoByID(ctx context.Context, id int) (*entity.Todo, error) {
+// GetTodoByID は指定されたIDとユーザーIDのTodoを取得する
+func (u *TodoUsecase) GetTodoByID(ctx context.Context, id int, userID int64) (*entity.Todo, error) {
 	if id <= 0 {
 		return nil, entity.ErrTodoNotFound
 	}
-	return u.repo.FindByID(ctx, id)
+	return u.repo.FindByIDAndUserID(ctx, id, userID)
 }
 
 // CreateTodo は新しいTodoを作成する
-func (u *TodoUsecase) CreateTodo(ctx context.Context, title, description string) (*entity.Todo, error) {
-	todo := entity.NewTodo(title, description)
+func (u *TodoUsecase) CreateTodo(ctx context.Context, userID int64, title, description string) (*entity.Todo, error) {
+	todo := entity.NewTodo(userID, title, description)
 
 	if err := todo.Validate(); err != nil {
 		return nil, err
@@ -44,13 +44,13 @@ func (u *TodoUsecase) CreateTodo(ctx context.Context, title, description string)
 	return todo, nil
 }
 
-// UpdateTodo は指定されたIDのTodoを更新する
-func (u *TodoUsecase) UpdateTodo(ctx context.Context, id int, title, description *string, completed *bool) (*entity.Todo, error) {
+// UpdateTodo は指定されたIDとユーザーIDのTodoを更新する
+func (u *TodoUsecase) UpdateTodo(ctx context.Context, id int, userID int64, title, description *string, completed *bool) (*entity.Todo, error) {
 	if id <= 0 {
 		return nil, entity.ErrTodoNotFound
 	}
 
-	todo, err := u.repo.FindByID(ctx, id)
+	todo, err := u.repo.FindByIDAndUserID(ctx, id, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -81,17 +81,17 @@ func (u *TodoUsecase) UpdateTodo(ctx context.Context, id int, title, description
 	return todo, nil
 }
 
-// DeleteTodo は指定されたIDのTodoを削除する
-func (u *TodoUsecase) DeleteTodo(ctx context.Context, id int) error {
+// DeleteTodo は指定されたIDとユーザーIDのTodoを削除する
+func (u *TodoUsecase) DeleteTodo(ctx context.Context, id int, userID int64) error {
 	if id <= 0 {
 		return entity.ErrTodoNotFound
 	}
 
-	// 存在確認
-	_, err := u.repo.FindByID(ctx, id)
+	// 存在確認とユーザー所有権確認
+	_, err := u.repo.FindByIDAndUserID(ctx, id, userID)
 	if err != nil {
 		return err
 	}
 
-	return u.repo.Delete(ctx, id)
+	return u.repo.DeleteByIDAndUserID(ctx, id, userID)
 }

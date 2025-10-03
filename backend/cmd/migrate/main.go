@@ -1,11 +1,10 @@
-// cmd/migrate/main.go
+
 package main
 
 import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -96,7 +95,7 @@ func createMigrationTable(db *sql.DB) error {
 // getMigrations マイグレーションファイルを取得
 func getMigrations() ([]Migration, error) {
 	migrationDir := "database/migrations"
-	files, err := ioutil.ReadDir(migrationDir)
+	files, err := os.ReadDir(migrationDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read migration directory: %w", err)
 	}
@@ -115,7 +114,7 @@ func getMigrations() ([]Migration, error) {
 			continue
 		}
 
-		content, err := ioutil.ReadFile(filepath.Join(migrationDir, file.Name()))
+		content, err := os.ReadFile(filepath.Join(migrationDir, file.Name()))
 		if err != nil {
 			return nil, fmt.Errorf("failed to read migration file %s: %w", file.Name(), err)
 		}
@@ -294,7 +293,7 @@ func createMigration(name string) error {
 -- );
 `, name, time.Now().Format("2006-01-02 15:04:05"))
 
-	if err := ioutil.WriteFile(filename, []byte(template), 0644); err != nil {
+	if err := os.WriteFile(filename, []byte(template), 0644); err != nil {
 		return fmt.Errorf("failed to create migration file: %w", err)
 	}
 

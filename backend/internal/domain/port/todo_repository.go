@@ -7,8 +7,8 @@ import (
 
 // TodoRepository はTodoの永続化を抽出したポート(インターフェース)
 type TodoRepository interface {
-	FindAll(ctx context.Context) ([]*entity.Todo, error)
-	FindByID(ctx context.Context, id int) (*entity.Todo, error)
+	FindAllByUserID(ctx context.Context, userID int64) ([]*entity.Todo, error)
+	FindByIDAndUserID(ctx context.Context, id int, userID int64) (*entity.Todo, error)
 	Save(ctx context.Context, todo *entity.Todo) error
-	Delete(ctx context.Context, id int) error
+	DeleteByIDAndUserID(ctx context.Context, id int, userID int64) error
 }

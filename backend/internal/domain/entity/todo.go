@@ -5,6 +5,7 @@ import "time"
 // Todo はTodoアイテムを表すドメインエンティティ
 type Todo struct {
 	ID          int
+	UserID      int64
 	Title       string
 	Description string
 	Completed   bool
@@ -13,8 +14,9 @@ type Todo struct {
 }
 
 // NewTodo は新しいTodoエンティティを作成する
-func NewTodo(title, description string) *Todo {
+func NewTodo(userID int64, title, description string) *Todo {
 	return &Todo{
+		UserID:      userID,
 		Title:       title,
 		Description: description,
 		Completed:   false,
