@@ -34,5 +34,13 @@ services:
       timeout: 5s
       retries: 5
 
+  node18:
+    image: node:18
+    volumes:
+      - ../:/workspace:cached
+    working_dir: /workspace
+    tty: true
+    command: sleep infinity
+
 volumes:
   mysql-data:
