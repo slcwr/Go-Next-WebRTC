@@ -22,6 +22,7 @@ export const todosApi = {
 
   // Todo更新
   update: async (id: number, data: UpdateTodoRequest): Promise<Todo> => {
+    console.log('Updating todo:', { id, data });
     const response = await apiClient.put<Todo>(`/api/todos/${id}`, data);
     return response.data;
   },

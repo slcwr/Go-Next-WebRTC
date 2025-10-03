@@ -100,6 +100,7 @@ func (u *authUseCase) Register(ctx context.Context, email, password, name string
 	user := &entity.User{
 		Email:     strings.ToLower(strings.TrimSpace(email)),
 		Name:      strings.TrimSpace(name),
+		IsActive:  true,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -126,17 +127,20 @@ func (u *authUseCase) Login(ctx context.Context, email, password string) (*entit
 	// 入力検証
 	email = strings.ToLower(strings.TrimSpace(email))
 	if email == "" || password == "" {
+		fmt.Printf("Login failed: empty email or password\n")
 		return nil, entity.ErrInvalidCredentials
 	}
 
 	// ユーザー取得
 	user, err := u.userRepo.FindByEmail(ctx, email)
 	if err != nil {
+		fmt.Printf("Login failed: user not found for email %s: %v\n", email, err)
 		return nil, entity.ErrInvalidCredentials
 	}
 
 	// パスワード検証
 	if !user.CheckPassword(password) {
+		fmt.Printf("Login failed: invalid password for email %s\n", email)
 		// TODO: ログイン失敗回数をカウントして、一定回数以上でアカウントロック
 		return nil, entity.ErrInvalidCredentials
 	}
