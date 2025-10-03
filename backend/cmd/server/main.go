@@ -18,6 +18,7 @@ import (
 	"todolist/internal/application/usecase"
 	"todolist/internal/domain/port"
 	"todolist/pkg/database"
+	"todolist/pkg/logger"
 )
 
 func main() {
@@ -36,7 +37,8 @@ func main() {
 	dsn := getEnv("DB_DSN", "root:password@tcp(localhost:3306)/todolist?parseTime=true")
 	db, err := database.NewMySQL(dsn)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		slog.Error("Failed to connect to database", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 	defer db.Close()
 
@@ -232,21 +234,23 @@ func initLogger() {
 	env := getEnv("ENV", "development")
 	logLevel := getLogLevel()
 
-	var handler slog.Handler
+	var baseHandler slog.Handler
 	if env == "production" {
 		// 本番環境: JSON形式
-		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		baseHandler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 			Level: logLevel,
 		})
 	} else {
 		// 開発環境: テキスト形式（読みやすい）
-		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		baseHandler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 			Level: logLevel,
 		})
 	}
 
-	logger := slog.New(handler)
-	slog.SetDefault(logger)
+	// スタックトレース対応ハンドラーでラップ
+	handlerWithStack := logger.NewStackTraceHandler(baseHandler)
+	slogLogger := slog.New(handlerWithStack)
+	slog.SetDefault(slogLogger)
 }
 
 // getLogLevel 環境変数からログレベルを取得
