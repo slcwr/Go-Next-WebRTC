@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -410,8 +409,12 @@ func (u *authUseCase) generateTokens(ctx context.Context, user *entity.User) (*e
 // validateRegistrationInput 登録入力の検証
 func (u *authUseCase) validateRegistrationInput(email, password, name string) error {
 	// メールアドレスの検証
+	email = strings.TrimSpace(email)
+	if email == "" {
+		return entity.ErrEmailRequired
+	}
 	if !u.isValidEmail(email) {
-		return errors.New("invalid email address format")
+		return entity.ErrInvalidEmailFormat
 	}
 
 	// パスワードの検証
@@ -422,7 +425,7 @@ func (u *authUseCase) validateRegistrationInput(email, password, name string) er
 	// 名前の検証
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return errors.New("name is required")
+		return entity.ErrNameRequired
 	}
 	if len(name) > 100 {
 		return errors.New("name is too long (max 100 characters)")

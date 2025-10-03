@@ -29,8 +29,8 @@ type UpdateTodoRequest struct {
 }
 
 // ToEntity はDTOからエンティティに変換する
-func (r *CreateTodoRequest) ToEntity() *entity.Todo {
-	return entity.NewTodo(r.Title, r.Description)
+func (r *CreateTodoRequest) ToEntity(userID int64) *entity.Todo {
+	return entity.NewTodo(userID, r.Title, r.Description)
 }
 
 // FromEntity はエンティティからDTOに変換する
