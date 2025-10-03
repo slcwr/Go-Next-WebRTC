@@ -37,25 +37,37 @@ type AuthUseCase interface {
 	RevokeAllSessions(ctx context.Context, userID int64) error
 }
 
-type authUseCase struct {
-	userRepo port.UserRepository
-	authRepo port.AuthRepository
+// AuthConfig 認証関連の設定
+type AuthConfig struct {
+	JWTSecret             []byte
+	AccessTokenDuration   time.Duration
+	RefreshTokenDuration  time.Duration
+	PasswordResetDuration time.Duration
 }
 
-func NewAuthUseCase(userRepo port.UserRepository, authRepo port.AuthRepository) AuthUseCase {
-	return &authUseCase{
-		userRepo: userRepo,
-		authRepo: authRepo,
+// NewAuthConfig デフォルト設定で AuthConfig を作成
+func NewAuthConfig(jwtSecret string) *AuthConfig {
+	return &AuthConfig{
+		JWTSecret:             []byte(jwtSecret),
+		AccessTokenDuration:   15 * time.Minute,
+		RefreshTokenDuration:  7 * 24 * time.Hour,
+		PasswordResetDuration: 1 * time.Hour,
 	}
 }
 
-// JWT関連の設定
-var (
-	jwtSecret             = []byte(os.Getenv("JWT_SECRET"))
-	accessTokenDuration   = 15 * time.Minute
-	refreshTokenDuration  = 7 * 24 * time.Hour
-	passwordResetDuration = 1 * time.Hour
-)
+type authUseCase struct {
+	userRepo port.UserRepository
+	authRepo port.AuthRepository
+	config   *AuthConfig
+}
+
+func NewAuthUseCase(userRepo port.UserRepository, authRepo port.AuthRepository, config *AuthConfig) AuthUseCase {
+	return &authUseCase{
+		userRepo: userRepo,
+		authRepo: authRepo,
+		config:   config,
+	}
+}
 
 // Claims JWTクレーム
 type Claims struct {
@@ -271,13 +283,13 @@ func (u *authUseCase) RequestPasswordReset(ctx context.Context, email string) (s
 		Email:  user.Email,
 		Type:   "password_reset",
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(passwordResetDuration)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(u.config.PasswordResetDuration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, resetClaims)
-	tokenString, err := token.SignedString(jwtSecret)
+	tokenString, err := token.SignedString(u.config.JWTSecret)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate reset token: %w", err)
 	}
@@ -296,7 +308,7 @@ func (u *authUseCase) ResetPassword(ctx context.Context, token, newPassword stri
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
-		return jwtSecret, nil
+		return u.config.JWTSecret, nil
 	})
 
 	if err != nil || !parsedToken.Valid {
@@ -354,14 +366,14 @@ func (u *authUseCase) generateTokens(ctx context.Context, user *entity.User) (*e
 		UserID: user.ID,
 		Email:  user.Email,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(accessTokenDuration)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(u.config.AccessTokenDuration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    "go-next-app",
 		},
 	}
 
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
-	accessTokenString, err := accessToken.SignedString(jwtSecret)
+	accessTokenString, err := accessToken.SignedString(u.config.JWTSecret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
@@ -377,7 +389,7 @@ func (u *authUseCase) generateTokens(ctx context.Context, user *entity.User) (*e
 	refreshToken := &entity.RefreshToken{
 		UserID:    user.ID,
 		Token:     refreshTokenString,
-		ExpiresAt: time.Now().Add(refreshTokenDuration),
+		ExpiresAt: time.Now().Add(u.config.RefreshTokenDuration),
 		CreatedAt: time.Now(),
 	}
 
@@ -389,7 +401,7 @@ func (u *authUseCase) generateTokens(ctx context.Context, user *entity.User) (*e
 		AccessToken:  accessTokenString,
 		RefreshToken: refreshTokenString,
 		User:         *user,
-		ExpiresAt:    time.Now().Add(accessTokenDuration),
+		ExpiresAt:    time.Now().Add(u.config.AccessTokenDuration),
 	}, nil
 }
 
@@ -458,28 +470,3 @@ func (u *authUseCase) isValidEmail(email string) bool {
 	return emailRegex.MatchString(email)
 }
 
-// ValidateAccessToken アクセストークンの検証（ミドルウェアで使用）
-func ValidateAccessToken(tokenString string) (*Claims, error) {
-	claims := &Claims{}
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
-		}
-		return jwtSecret, nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if !token.Valid {
-		return nil, entity.ErrInvalidToken
-	}
-
-	// Issuerの確認
-	if claims.Issuer != "go-next-app" {
-		return nil, errors.New("invalid token issuer")
-	}
-
-	return claims, nil
-}

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"todolist/internal/application/usecase"
+	"todolist/pkg/jwt"
 )
 
 // contextKey はコンテキストキーの型
@@ -19,8 +19,18 @@ const (
 	UserEmailKey contextKey = "userEmail"
 )
 
-// AuthMiddleware 認証ミドルウェア
-func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
+// Auth 認証ミドルウェアのファクトリー
+type Auth struct {
+	jwtService *jwt.Service
+}
+
+// NewAuth 認証ミドルウェアを作成
+func NewAuth(jwtService *jwt.Service) *Auth {
+	return &Auth{jwtService: jwtService}
+}
+
+// Middleware 認証ミドルウェア
+func (a *Auth) Middleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Authorizationヘッダーからトークンを取得
 		authHeader := r.Header.Get("Authorization")
@@ -37,7 +47,7 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// トークンを検証
-		claims, err := usecase.ValidateAccessToken(tokenString)
+		claims, err := a.jwtService.ValidateAccessToken(tokenString)
 		if err != nil {
 			respondWithError(w, http.StatusUnauthorized, "Invalid or expired token")
 			return
@@ -52,15 +62,15 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// OptionalAuthMiddleware オプショナル認証ミドルウェア
+// OptionalMiddleware オプショナル認証ミドルウェア
 // 認証がある場合はユーザー情報を設定、ない場合もリクエストを通す
-func OptionalAuthMiddleware(next http.Handler) http.Handler {
+func (a *Auth) OptionalMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader != "" {
 			tokenString := extractBearerToken(authHeader)
 			if tokenString != "" {
-				claims, err := usecase.ValidateAccessToken(tokenString)
+				claims, err := a.jwtService.ValidateAccessToken(tokenString)
 				if err == nil {
 					ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
 					ctx = context.WithValue(ctx, UserEmailKey, claims.Email)
@@ -68,7 +78,7 @@ func OptionalAuthMiddleware(next http.Handler) http.Handler {
 				}
 			}
 		}
-		
+
 		next.ServeHTTP(w, r)
 	})
 }

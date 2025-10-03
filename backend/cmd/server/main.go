@@ -18,6 +18,7 @@ import (
 	"todolist/internal/application/usecase"
 	"todolist/internal/domain/port"
 	"todolist/pkg/database"
+	jwtpkg "todolist/pkg/jwt"
 	"todolist/pkg/logger"
 )
 
@@ -43,15 +44,23 @@ func main() {
 	defer db.Close()
 
 	// 依存関係の初期化（Hexagonal Architecture）
-	
+
+	// JWTサービスの初期化
+	jwtSecret := os.Getenv("JWT_SECRET")
+	jwtService := jwtpkg.NewService([]byte(jwtSecret))
+
+	// 認証ミドルウェアの初期化
+	authMiddleware := middleware.NewAuth(jwtService)
+
 	// Adapter層: Repository
 	todoRepo := repository.NewMySQLTodoRepository(db)
 	userRepo := repository.NewMySQLUserRepository(db)
 	authRepo := repository.NewMySQLAuthRepository(db)
 
-	// Application層: UseCase
+	// Application層: UseCase設定
+	authConfig := usecase.NewAuthConfig(jwtSecret)
 	todoUsecase := usecase.NewTodoUsecase(todoRepo)
-	authUsecase := usecase.NewAuthUseCase(userRepo, authRepo)
+	authUsecase := usecase.NewAuthUseCase(userRepo, authRepo, authConfig)
 
 	// Adapter層: HTTP Handler
 	todoHandler := handler.NewTodoHandler(todoUsecase)
@@ -96,7 +105,7 @@ func main() {
 	})
 
 	// 認証が必要なエンドポイント
-	mux.HandleFunc("/api/auth/logout", middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/auth/logout", authMiddleware.Middleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -104,7 +113,7 @@ func main() {
 		authHandler.Logout(w, r)
 	}))
 
-	mux.HandleFunc("/api/auth/me", middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/auth/me", authMiddleware.Middleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -112,7 +121,7 @@ func main() {
 		authHandler.GetCurrentUser(w, r)
 	}))
 
-	mux.HandleFunc("/api/auth/profile", middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/auth/profile", authMiddleware.Middleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -120,7 +129,7 @@ func main() {
 		authHandler.UpdateProfile(w, r)
 	}))
 
-	mux.HandleFunc("/api/auth/password", middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/auth/password", authMiddleware.Middleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -129,7 +138,7 @@ func main() {
 	}))
 
 	// Todo API（認証必須）
-	mux.HandleFunc("/api/todos", middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/todos", authMiddleware.Middleware(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			todoHandler.GetTodos(w, r)
@@ -140,7 +149,7 @@ func main() {
 		}
 	}))
 
-	mux.HandleFunc("/api/todos/", middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/todos/", authMiddleware.Middleware(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			todoHandler.GetTodo(w, r)
