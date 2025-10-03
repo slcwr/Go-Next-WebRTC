@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,7 +11,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	
+
 	"todolist/internal/adapter/http/handler"
 	"todolist/internal/adapter/http/middleware"
 	"todolist/internal/adapter/repository"
@@ -24,6 +25,9 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
 	}
+
+	// 構造化ログの初期化
+	initLogger()
 
 	// 環境変数の検証
 	validateEnvironment()
@@ -169,13 +173,16 @@ func main() {
 
 	// グレースフルシャットダウンの設定
 	go func() {
-		log.Printf("Server is starting on port %s...", port)
-		log.Printf("Environment: %s", getEnv("ENV", "development"))
-		log.Printf("Allowed Origins: %s", getEnv("ALLOWED_ORIGINS", "http://localhost:3000"))
-		log.Printf("Max Request Body Size: %s bytes", getEnv("MAX_REQUEST_BODY_SIZE", "10485760 (10MB)"))
+		slog.Info("Server starting",
+			slog.String("port", port),
+			slog.String("env", getEnv("ENV", "development")),
+			slog.String("allowed_origins", getEnv("ALLOWED_ORIGINS", "http://localhost:3000")),
+			slog.String("max_body_size", getEnv("MAX_REQUEST_BODY_SIZE", "10485760")),
+		)
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server failed to start: %v", err)
+			slog.Error("Server failed to start", slog.String("error", err.Error()))
+			os.Exit(1)
 		}
 	}()
 
@@ -187,17 +194,18 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Server is shutting down...")
+	slog.Info("Server is shutting down")
 
 	// グレースフルシャットダウン
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		slog.Error("Server forced to shutdown", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 
-	log.Println("Server exited")
+	slog.Info("Server exited gracefully")
 }
 
 // validateEnvironment 必須の環境変数をチェック
@@ -219,6 +227,45 @@ func validateEnvironment() {
 	}
 }
 
+// initLogger 構造化ログの初期化
+func initLogger() {
+	env := getEnv("ENV", "development")
+	logLevel := getLogLevel()
+
+	var handler slog.Handler
+	if env == "production" {
+		// 本番環境: JSON形式
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: logLevel,
+		})
+	} else {
+		// 開発環境: テキスト形式（読みやすい）
+		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: logLevel,
+		})
+	}
+
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+}
+
+// getLogLevel 環境変数からログレベルを取得
+func getLogLevel() slog.Level {
+	levelStr := getEnv("LOG_LEVEL", "info")
+	switch levelStr {
+	case "debug":
+		return slog.LevelDebug
+	case "info":
+		return slog.LevelInfo
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
 // startCleanupTasks 定期的なクリーンアップタスクを開始
 func startCleanupTasks(authRepo port.AuthRepository) {
 	ticker := time.NewTicker(1 * time.Hour)
@@ -227,10 +274,11 @@ func startCleanupTasks(authRepo port.AuthRepository) {
 	for range ticker.C {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		if err := authRepo.DeleteExpiredRefreshTokens(ctx); err != nil {
-			log.Printf("Failed to delete expired refresh tokens: %v", err)
+			slog.Error("Failed to delete expired refresh tokens", slog.String("error", err.Error()))
+		} else {
+			slog.Info("Cleaned up expired refresh tokens")
 		}
 		cancel()
-		log.Println("Cleaned up expired refresh tokens")
 	}
 }
 

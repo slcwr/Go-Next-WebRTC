@@ -1,26 +1,56 @@
 package middleware
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 )
 
-// Logger はリクエストをログ出力するミドルウェア
+// responseWriter はステータスコードをキャプチャするためのラッパー
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+	written    int64
+}
+
+func newResponseWriter(w http.ResponseWriter) *responseWriter {
+	return &responseWriter{
+		ResponseWriter: w,
+		statusCode:     http.StatusOK,
+	}
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func (rw *responseWriter) Write(b []byte) (int, error) {
+	n, err := rw.ResponseWriter.Write(b)
+	rw.written += int64(n)
+	return n, err
+}
+
+// Logger はリクエストをログ出力するミドルウェア（構造化ログ対応）
 func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
+		wrapped := newResponseWriter(w)
 
 		// リクエストの処理
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(wrapped, r)
 
-		// ログ出力
-		log.Printf(
-			"%s %s %s %v",
-			r.Method,
-			r.RequestURI,
-			r.RemoteAddr,
-			time.Since(start),
+		// 構造化ログ出力
+		duration := time.Since(start)
+
+		slog.Info("HTTP Request",
+			slog.String("method", r.Method),
+			slog.String("path", r.RequestURI),
+			slog.String("remote_addr", r.RemoteAddr),
+			slog.Int("status", wrapped.statusCode),
+			slog.Int64("bytes", wrapped.written),
+			slog.Duration("duration", duration),
+			slog.String("user_agent", r.UserAgent()),
 		)
 	})
 }
