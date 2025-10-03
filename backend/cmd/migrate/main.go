@@ -276,9 +276,6 @@ func showStatus(db *sql.DB) error {
 
 // createMigration 新しいマイグレーションファイルを作成
 func createMigration(name string) error {
-	timestamp := time.Now().Format("20060102150405")
-	version := fmt.Sprintf("%s", timestamp)
-	
 	// 既存のマイグレーション数を取得して連番を作成
 	migrations, _ := getMigrations()
 	number := fmt.Sprintf("%03d", len(migrations)+1)
