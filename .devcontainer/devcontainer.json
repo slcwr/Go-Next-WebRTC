@@ -6,6 +6,13 @@
 	"service": "app",
 	"workspaceFolder": "/workspace",
 
+	// Features to add to the dev container
+	"features": {
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "20"
+		}
+	},
+
 	// Configure tool-specific properties.
 	"customizations": {
 		// Configure properties specific to VS Code.
@@ -43,7 +50,7 @@
 	},
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "go version && node --version && npm --version",
+	"postCreateCommand": "cd /workspace/frontend && npm install",
 
 	// Environment variables
 	"remoteEnv": {
