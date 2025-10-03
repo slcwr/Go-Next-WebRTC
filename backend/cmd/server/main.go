@@ -149,10 +149,12 @@ func main() {
 
 	// ミドルウェアの適用（シンプルなチェーン）
 	var handler http.Handler = mux
-	
-	// RequestIDとSecurityミドルウェアが存在する場合のみ適用
-	// （これらのミドルウェアがまだ実装されていない可能性があるため）
+
+	// リクエストボディサイズ制限（DoS攻撃対策）
+	handler = middleware.MaxBytes(handler)
+	// CORS設定
 	handler = middleware.CORS(handler)
+	// ロギング
 	handler = middleware.Logger(handler)
 
 	// サーバー設定
@@ -170,7 +172,8 @@ func main() {
 		log.Printf("Server is starting on port %s...", port)
 		log.Printf("Environment: %s", getEnv("ENV", "development"))
 		log.Printf("Allowed Origins: %s", getEnv("ALLOWED_ORIGINS", "http://localhost:3000"))
-		
+		log.Printf("Max Request Body Size: %s bytes", getEnv("MAX_REQUEST_BODY_SIZE", "10485760 (10MB)"))
+
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed to start: %v", err)
 		}
