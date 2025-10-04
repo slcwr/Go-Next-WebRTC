@@ -11,10 +11,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"todolist/internal/adapter/http/dto"
-	"todolist/internal/adapter/websocket"
-	"todolist/internal/application/usecase"
-	"todolist/internal/domain/entity"
+	"Go-Next-WebRTC/internal/adapter/http/dto"
+	"Go-Next-WebRTC/internal/adapter/websocket"
+	"Go-Next-WebRTC/internal/application/usecase"
+	"Go-Next-WebRTC/internal/domain/entity"
 )
 
 // CallHandler 通話関連のHTTPハンドラー

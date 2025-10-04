@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"todolist/internal/config"
+	"Go-Next-WebRTC/internal/config"
 )
 
 // Server HTTPサーバー

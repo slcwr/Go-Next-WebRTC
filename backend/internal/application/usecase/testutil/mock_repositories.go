@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"todolist/internal/domain/entity"
+	"Go-Next-WebRTC/internal/domain/entity"
 )
 
 // MockUserRepository モックユーザーリポジトリ

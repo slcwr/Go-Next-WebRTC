@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
-	"todolist/internal/domain/entity"
+	"Go-Next-WebRTC/internal/domain/entity"
 )
 
 type mysqlCallMinutesRepository struct {

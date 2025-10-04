@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"todolist/internal/domain/entity"
-	"todolist/internal/domain/port"
-	"todolist/pkg/email"
-	"todolist/pkg/storage"
-	"todolist/pkg/transcription"
+	"Go-Next-WebRTC/internal/domain/entity"
+	"Go-Next-WebRTC/internal/domain/port"
+	"Go-Next-WebRTC/pkg/email"
+	"Go-Next-WebRTC/pkg/storage"
+	"Go-Next-WebRTC/pkg/transcription"
 )
 
 // RecordingUsecase 録音・文字起こしユースケースのインターフェース

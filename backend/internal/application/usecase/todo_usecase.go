@@ -2,8 +2,8 @@ package usecase
 
 import (
 	"context"
-	"todolist/internal/domain/entity"
-	"todolist/internal/domain/port"
+	"Go-Next-WebRTC/internal/domain/entity"
+	"Go-Next-WebRTC/internal/domain/port"
 )
 
 // TodoUsecase はTodoに関するユースケースを提供する

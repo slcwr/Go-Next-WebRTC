@@ -4,17 +4,17 @@ import (
 	"context"
 	"log/slog"
 
-	"todolist/internal/adapter/http/handler"
-	"todolist/internal/adapter/http/middleware"
-	"todolist/internal/adapter/repository"
-	"todolist/internal/adapter/websocket"
-	"todolist/internal/application/usecase"
-	"todolist/internal/config"
-	"todolist/pkg/database"
-	"todolist/pkg/email"
-	jwtpkg "todolist/pkg/jwt"
-	"todolist/pkg/storage"
-	"todolist/pkg/transcription"
+	"Go-Next-WebRTC/internal/adapter/http/handler"
+	"Go-Next-WebRTC/internal/adapter/http/middleware"
+	"Go-Next-WebRTC/internal/adapter/repository"
+	"Go-Next-WebRTC/internal/adapter/websocket"
+	"Go-Next-WebRTC/internal/application/usecase"
+	"Go-Next-WebRTC/internal/config"
+	"Go-Next-WebRTC/pkg/database"
+	"Go-Next-WebRTC/pkg/email"
+	jwtpkg "Go-Next-WebRTC/pkg/jwt"
+	"Go-Next-WebRTC/pkg/storage"
+	"Go-Next-WebRTC/pkg/transcription"
 )
 
 // initializeDependencies 依存関係の初期化

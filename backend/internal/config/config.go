@@ -54,7 +54,7 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		Port:                       getEnv("PORT", "8080"),
 		Env:                        getEnv("ENV", "development"),
-		DBDSN:                      getEnv("DB_DSN", "root:password@tcp(localhost:3306)/todolist?parseTime=true"),
+		DBDSN:                      getEnv("DB_DSN", "root:password@tcp(localhost:3306)/Go-Next-WebRTC?parseTime=true"),
 		JWTSecret:                  os.Getenv("JWT_SECRET"),
 		AllowedOrigins:             getEnv("ALLOWED_ORIGINS", "http://localhost:3000"),
 		MaxRequestBodySize:         getEnv("MAX_REQUEST_BODY_SIZE", "10485760"),

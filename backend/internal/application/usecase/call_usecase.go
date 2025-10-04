@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"todolist/internal/domain/entity"
-	"todolist/internal/domain/port"
+	"Go-Next-WebRTC/internal/domain/entity"
+	"Go-Next-WebRTC/internal/domain/port"
 )
 
 // CallUsecase 通話ユースケースのインターフェース

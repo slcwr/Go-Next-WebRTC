@@ -5,15 +5,15 @@ import (
 	"net/http"
 	"os"
 
-	"todolist/internal/adapter/http/handler"
-	"todolist/internal/adapter/http/middleware"
-	"todolist/internal/config"
-	"todolist/internal/domain/port"
-	"todolist/internal/infrastructure/router"
-	"todolist/pkg/database"
-	"todolist/pkg/logger"
-	"todolist/pkg/storage"
-	"todolist/pkg/transcription"
+	"Go-Next-WebRTC/internal/adapter/http/handler"
+	"Go-Next-WebRTC/internal/adapter/http/middleware"
+	"Go-Next-WebRTC/internal/config"
+	"Go-Next-WebRTC/internal/domain/port"
+	"Go-Next-WebRTC/internal/infrastructure/router"
+	"Go-Next-WebRTC/pkg/database"
+	"Go-Next-WebRTC/pkg/logger"
+	"Go-Next-WebRTC/pkg/storage"
+	"Go-Next-WebRTC/pkg/transcription"
 )
 
 // Dependencies アプリケーションの依存関係

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"todolist/internal/domain/entity"
-	"todolist/internal/domain/port"
+	"Go-Next-WebRTC/internal/domain/entity"
+	"Go-Next-WebRTC/internal/domain/port"
 )
 
 type AuthUseCase interface {

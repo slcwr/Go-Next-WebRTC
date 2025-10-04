@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"todolist/internal/application/usecase/testutil"
-	"todolist/internal/domain/entity"
+	"Go-Next-WebRTC/internal/application/usecase/testutil"
+	"Go-Next-WebRTC/internal/domain/entity"
 )
 
 func TestAuthUseCase_Register(t *testing.T) {

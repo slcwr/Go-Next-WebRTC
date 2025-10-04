@@ -2,7 +2,7 @@ package dto
 
 import (
 	"time"
-	"todolist/internal/domain/entity"
+	"Go-Next-WebRTC/internal/domain/entity"
 )
 
 // TodoResponse はTodoのレスポンスDTO

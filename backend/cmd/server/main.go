@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"todolist/internal/app"
+	"Go-Next-WebRTC/internal/app"
 )
 
 func main() {

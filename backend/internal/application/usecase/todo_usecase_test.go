@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"todolist/internal/application/usecase/testutil"
-	"todolist/internal/domain/entity"
+	"Go-Next-WebRTC/internal/application/usecase/testutil"
+	"Go-Next-WebRTC/internal/domain/entity"
 )
 
 func TestTodoUsecase_CreateTodo(t *testing.T) {

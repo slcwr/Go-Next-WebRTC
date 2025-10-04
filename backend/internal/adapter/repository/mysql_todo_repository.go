@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"todolist/internal/domain/entity"
+	"Go-Next-WebRTC/internal/domain/entity"
 )
 
 // MySQLTodoRepository はMySQLを使ったTodoRepositoryの実装

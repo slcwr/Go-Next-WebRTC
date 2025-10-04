@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"todolist/internal/adapter/http/dto"
-	"todolist/internal/application/usecase"
-	"todolist/internal/domain/entity"
+	"Go-Next-WebRTC/internal/adapter/http/dto"
+	"Go-Next-WebRTC/internal/application/usecase"
+	"Go-Next-WebRTC/internal/domain/entity"
 )
 
 type AuthHandler struct {

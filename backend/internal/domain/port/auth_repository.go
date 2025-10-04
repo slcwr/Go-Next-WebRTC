@@ -2,7 +2,7 @@ package port
 
 import (
 	"context"
-	"todolist/internal/domain/entity"
+	"Go-Next-WebRTC/internal/domain/entity"
 )
 
 // AuthRepository 認証関連のリポジトリインターフェース

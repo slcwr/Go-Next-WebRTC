@@ -1,4 +1,4 @@
-module todolist
+module Go-Next-WebRTC
 
 go 1.21.0
 

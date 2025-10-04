@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
-	"todolist/internal/adapter/http/middleware"
-	"todolist/internal/app"
-	"todolist/internal/domain/port"
+	"Go-Next-WebRTC/internal/adapter/http/middleware"
+	"Go-Next-WebRTC/internal/app"
+	"Go-Next-WebRTC/internal/domain/port"
 )
 
 // NewRouter ルーターを作成
