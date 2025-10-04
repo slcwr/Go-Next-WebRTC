@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -15,11 +16,15 @@ import (
 	"todolist/internal/adapter/http/handler"
 	"todolist/internal/adapter/http/middleware"
 	"todolist/internal/adapter/repository"
+	"todolist/internal/adapter/websocket"
 	"todolist/internal/application/usecase"
 	"todolist/internal/domain/port"
 	"todolist/pkg/database"
+	"todolist/pkg/email"
 	jwtpkg "todolist/pkg/jwt"
 	"todolist/pkg/logger"
+	"todolist/pkg/storage"
+	"todolist/pkg/transcription"
 )
 
 func main() {
@@ -52,19 +57,71 @@ func main() {
 	// 認証ミドルウェアの初期化
 	authMiddleware := middleware.NewAuth(jwtService)
 
+	// 外部サービスの初期化
+	ctx := context.Background()
+
+	// GCS Client
+	gcsClient, err := storage.NewGCSClient(ctx, os.Getenv("GCS_BUCKET_NAME"), os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+	if err != nil {
+		slog.Error("Failed to create GCS client", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	defer gcsClient.Close()
+
+	// Speech-to-Text Client
+	speechClient, err := transcription.NewSpeechToTextClient(ctx, os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+	if err != nil {
+		slog.Error("Failed to create speech client", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	defer speechClient.Close()
+
+	// Email Client
+	emailConfig := &email.SMTPConfig{
+		Host:     os.Getenv("SMTP_HOST"),
+		Port:     os.Getenv("SMTP_PORT"),
+		User:     os.Getenv("SMTP_USER"),
+		Password: os.Getenv("SMTP_PASSWORD"),
+		FromName: os.Getenv("SMTP_FROM_NAME"),
+	}
+	emailClient := email.NewSMTPClient(emailConfig)
+
 	// Adapter層: Repository
 	todoRepo := repository.NewMySQLTodoRepository(db)
 	userRepo := repository.NewMySQLUserRepository(db)
 	authRepo := repository.NewMySQLAuthRepository(db)
+	callRoomRepo := repository.NewMySQLCallRoomRepository(db)
+	callParticipantRepo := repository.NewMySQLCallParticipantRepository(db)
+	callRecordingRepo := repository.NewMySQLCallRecordingRepository(db)
+	callTranscriptionRepo := repository.NewMySQLCallTranscriptionRepository(db)
+	callMinutesRepo := repository.NewMySQLCallMinutesRepository(db)
 
 	// Application層: UseCase設定
 	authConfig := usecase.NewAuthConfig(jwtSecret)
 	todoUsecase := usecase.NewTodoUsecase(todoRepo)
 	authUsecase := usecase.NewAuthUseCase(userRepo, authRepo, authConfig)
+	callUsecase := usecase.NewCallUsecase(callRoomRepo, callParticipantRepo)
+	recordingUsecase := usecase.NewRecordingUsecase(
+		callRecordingRepo,
+		callTranscriptionRepo,
+		callMinutesRepo,
+		callParticipantRepo,
+		callRoomRepo,
+		userRepo,
+		gcsClient,
+		speechClient,
+		emailClient,
+		getEnv("FRONTEND_URL", "http://localhost:3000"),
+	)
+
+	// WebSocketシグナリングサーバー
+	signalingServer := websocket.NewSignalingServer()
+	go signalingServer.Run()
 
 	// Adapter層: HTTP Handler
 	todoHandler := handler.NewTodoHandler(todoUsecase)
 	authHandler := handler.NewAuthHandler(authUsecase)
+	callHandler := handler.NewCallHandler(callUsecase, recordingUsecase, signalingServer)
 
 	// ルーティング設定
 	mux := http.NewServeMux()
@@ -160,6 +217,60 @@ func main() {
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
+	}))
+
+	// Call API（認証必須）
+	mux.HandleFunc("/api/calls/rooms", authMiddleware.Middleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			callHandler.CreateRoom(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
+
+	mux.HandleFunc("/api/calls/rooms/", authMiddleware.Middleware(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/join") {
+			if r.Method == http.MethodPost {
+				callHandler.JoinRoom(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		} else if strings.HasSuffix(r.URL.Path, "/leave") {
+			if r.Method == http.MethodPost {
+				callHandler.LeaveRoom(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		} else if strings.HasSuffix(r.URL.Path, "/recordings") {
+			if r.Method == http.MethodPost {
+				callHandler.UploadRecording(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		} else if strings.HasSuffix(r.URL.Path, "/transcribe") {
+			if r.Method == http.MethodPost {
+				callHandler.TranscribeCall(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		} else if strings.HasSuffix(r.URL.Path, "/minutes") {
+			if r.Method == http.MethodGet {
+				callHandler.GetMinutes(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		} else {
+			if r.Method == http.MethodGet {
+				callHandler.GetRoom(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		}
+	}))
+
+	// WebSocketシグナリングエンドポイント（認証必須）
+	mux.HandleFunc("/ws/signaling/", authMiddleware.Middleware(func(w http.ResponseWriter, r *http.Request) {
+		callHandler.HandleSignaling(w, r)
 	}))
 
 	// ミドルウェアの適用（シンプルなチェーン）
