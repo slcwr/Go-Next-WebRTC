@@ -7,19 +7,20 @@ import (
 
 	"Go-Next-WebRTC/internal/domain/entity"
 	"Go-Next-WebRTC/internal/domain/port"
+	"Go-Next-WebRTC/pkg/database"
 )
 
-type mysqlAuthRepository struct {
-	db *sql.DB
+type MySQLAuthRepository struct {
+	db *database.MySQL
 }
 
 // NewMySQLAuthRepository MySQLを使用したAuthRepositoryの生成
-func NewMySQLAuthRepository(db *sql.DB) port.AuthRepository {
-	return &mysqlAuthRepository{db: db}
+func NewMySQLAuthRepository(db *database.MySQL) port.AuthRepository {
+	return &MySQLAuthRepository{db: db}
 }
 
 // SaveRefreshToken リフレッシュトークンの保存
-func (r *mysqlAuthRepository) SaveRefreshToken(ctx context.Context, token *entity.RefreshToken) error {
+func (r *MySQLAuthRepository) SaveRefreshToken(ctx context.Context, token *entity.RefreshToken) error {
 	query := `
 		INSERT INTO refresh_tokens (user_id, token, expires_at, created_at)
 		VALUES (?, ?, ?, ?)
@@ -46,7 +47,7 @@ func (r *mysqlAuthRepository) SaveRefreshToken(ctx context.Context, token *entit
 }
 
 // GetRefreshToken トークンによるリフレッシュトークン取得
-func (r *mysqlAuthRepository) GetRefreshToken(ctx context.Context, token string) (*entity.RefreshToken, error) {
+func (r *MySQLAuthRepository) GetRefreshToken(ctx context.Context, token string) (*entity.RefreshToken, error) {
 	refreshToken := &entity.RefreshToken{}
 	query := `
 		SELECT id, user_id, token, expires_at, created_at
@@ -73,7 +74,7 @@ func (r *mysqlAuthRepository) GetRefreshToken(ctx context.Context, token string)
 }
 
 // DeleteRefreshTokensByUserID ユーザーIDによるリフレッシュトークン削除
-func (r *mysqlAuthRepository) DeleteRefreshTokensByUserID(ctx context.Context, userID int64) error {
+func (r *MySQLAuthRepository) DeleteRefreshTokensByUserID(ctx context.Context, userID int64) error {
 	query := `DELETE FROM refresh_tokens WHERE user_id = ?`
 	
 	_, err := r.db.ExecContext(ctx, query, userID)
@@ -85,7 +86,7 @@ func (r *mysqlAuthRepository) DeleteRefreshTokensByUserID(ctx context.Context, u
 }
 
 // DeleteRefreshToken 特定のリフレッシュトークンを削除
-func (r *mysqlAuthRepository) DeleteRefreshToken(ctx context.Context, token string) error {
+func (r *MySQLAuthRepository) DeleteRefreshToken(ctx context.Context, token string) error {
 	query := `DELETE FROM refresh_tokens WHERE token = ?`
 	
 	result, err := r.db.ExecContext(ctx, query, token)
@@ -106,7 +107,7 @@ func (r *mysqlAuthRepository) DeleteRefreshToken(ctx context.Context, token stri
 }
 
 // DeleteExpiredRefreshTokens 期限切れリフレッシュトークンの削除
-func (r *mysqlAuthRepository) DeleteExpiredRefreshTokens(ctx context.Context) error {
+func (r *MySQLAuthRepository) DeleteExpiredRefreshTokens(ctx context.Context) error {
 	query := `DELETE FROM refresh_tokens WHERE expires_at < NOW()`
 	
 	_, err := r.db.ExecContext(ctx, query)
@@ -118,7 +119,7 @@ func (r *mysqlAuthRepository) DeleteExpiredRefreshTokens(ctx context.Context) er
 }
 
 // GetRefreshTokensByUserID ユーザーIDによるリフレッシュトークン一覧取得
-func (r *mysqlAuthRepository) GetRefreshTokensByUserID(ctx context.Context, userID int64) ([]*entity.RefreshToken, error) {
+func (r *MySQLAuthRepository) GetRefreshTokensByUserID(ctx context.Context, userID int64) ([]*entity.RefreshToken, error) {
 	query := `
 		SELECT id, user_id, token, expires_at, created_at
 		FROM refresh_tokens
@@ -156,7 +157,7 @@ func (r *mysqlAuthRepository) GetRefreshTokensByUserID(ctx context.Context, user
 }
 
 // CountActiveTokensByUserID ユーザーのアクティブなトークン数を取得
-func (r *mysqlAuthRepository) CountActiveTokensByUserID(ctx context.Context, userID int64) (int64, error) {
+func (r *MySQLAuthRepository) CountActiveTokensByUserID(ctx context.Context, userID int64) (int64, error) {
 	var count int64
 	query := `
 		SELECT COUNT(*) 
@@ -173,7 +174,7 @@ func (r *mysqlAuthRepository) CountActiveTokensByUserID(ctx context.Context, use
 }
 
 // SavePasswordResetToken パスワードリセットトークンの保存
-func (r *mysqlAuthRepository) SavePasswordResetToken(ctx context.Context, token *entity.PasswordResetToken) error {
+func (r *MySQLAuthRepository) SavePasswordResetToken(ctx context.Context, token *entity.PasswordResetToken) error {
 	// トランザクション開始
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -222,7 +223,7 @@ func (r *mysqlAuthRepository) SavePasswordResetToken(ctx context.Context, token 
 }
 
 // GetPasswordResetToken パスワードリセットトークンの取得
-func (r *mysqlAuthRepository) GetPasswordResetToken(ctx context.Context, token string) (*entity.PasswordResetToken, error) {
+func (r *MySQLAuthRepository) GetPasswordResetToken(ctx context.Context, token string) (*entity.PasswordResetToken, error) {
 	resetToken := &entity.PasswordResetToken{}
 	query := `
 		SELECT id, user_id, token, expires_at, used, created_at
@@ -251,7 +252,7 @@ func (r *mysqlAuthRepository) GetPasswordResetToken(ctx context.Context, token s
 }
 
 // MarkPasswordResetTokenAsUsed パスワードリセットトークンを使用済みにする
-func (r *mysqlAuthRepository) MarkPasswordResetTokenAsUsed(ctx context.Context, token string) error {
+func (r *MySQLAuthRepository) MarkPasswordResetTokenAsUsed(ctx context.Context, token string) error {
 	query := `
 		UPDATE password_reset_tokens 
 		SET used = TRUE 
@@ -276,7 +277,7 @@ func (r *mysqlAuthRepository) MarkPasswordResetTokenAsUsed(ctx context.Context, 
 }
 
 // DeleteExpiredPasswordResetTokens 期限切れパスワードリセットトークンの削除
-func (r *mysqlAuthRepository) DeleteExpiredPasswordResetTokens(ctx context.Context) error {
+func (r *MySQLAuthRepository) DeleteExpiredPasswordResetTokens(ctx context.Context) error {
 	query := `
 		DELETE FROM password_reset_tokens 
 		WHERE expires_at < NOW() 
@@ -294,7 +295,7 @@ func (r *mysqlAuthRepository) DeleteExpiredPasswordResetTokens(ctx context.Conte
 // トランザクション対応メソッド（オプション）
 
 // SaveRefreshTokenTx トランザクション内でリフレッシュトークンを保存
-func (r *mysqlAuthRepository) SaveRefreshTokenTx(ctx context.Context, tx *sql.Tx, token *entity.RefreshToken) error {
+func (r *MySQLAuthRepository) SaveRefreshTokenTx(ctx context.Context, tx *sql.Tx, token *entity.RefreshToken) error {
 	query := `
 		INSERT INTO refresh_tokens (user_id, token, expires_at, created_at)
 		VALUES (?, ?, ?, ?)
@@ -318,7 +319,7 @@ func (r *mysqlAuthRepository) SaveRefreshTokenTx(ctx context.Context, tx *sql.Tx
 }
 
 // DeleteRefreshTokensByUserIDTx トランザクション内でユーザーのリフレッシュトークンを削除
-func (r *mysqlAuthRepository) DeleteRefreshTokensByUserIDTx(ctx context.Context, tx *sql.Tx, userID int64) error {
+func (r *MySQLAuthRepository) DeleteRefreshTokensByUserIDTx(ctx context.Context, tx *sql.Tx, userID int64) error {
 	query := `DELETE FROM refresh_tokens WHERE user_id = ?`
 	
 	_, err := tx.ExecContext(ctx, query, userID)

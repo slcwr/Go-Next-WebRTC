@@ -2,22 +2,23 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 
 	"Go-Next-WebRTC/internal/domain/entity"
+	"Go-Next-WebRTC/internal/domain/port"
+	"Go-Next-WebRTC/pkg/database"
 )
 
-type mysqlCallTranscriptionRepository struct {
-	db *sql.DB
+type MySQLCallTranscriptionRepository struct {
+	db *database.MySQL
 }
 
 // NewMySQLCallTranscriptionRepository 新しいCallTranscriptionリポジトリを作成
-func NewMySQLCallTranscriptionRepository(db *sql.DB) *mysqlCallTranscriptionRepository {
-	return &mysqlCallTranscriptionRepository{db: db}
+func NewMySQLCallTranscriptionRepository(db *database.MySQL) port.CallTranscriptionRepository {
+	return &MySQLCallTranscriptionRepository{db: db}
 }
 
 // Create 文字起こしを作成
-func (r *mysqlCallTranscriptionRepository) Create(ctx context.Context, transcription *entity.CallTranscription) error {
+func (r *MySQLCallTranscriptionRepository) Create(ctx context.Context, transcription *entity.CallTranscription) error {
 	query := `
 		INSERT INTO call_transcriptions (room_id, recording_id, speaker_tag, text, confidence, start_time, end_time, language)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -46,7 +47,7 @@ func (r *mysqlCallTranscriptionRepository) Create(ctx context.Context, transcrip
 }
 
 // CreateBatch 文字起こしをバッチ作成
-func (r *mysqlCallTranscriptionRepository) CreateBatch(ctx context.Context, transcriptions []*entity.CallTranscription) error {
+func (r *MySQLCallTranscriptionRepository) CreateBatch(ctx context.Context, transcriptions []*entity.CallTranscription) error {
 	if len(transcriptions) == 0 {
 		return nil
 	}
@@ -86,7 +87,7 @@ func (r *mysqlCallTranscriptionRepository) CreateBatch(ctx context.Context, tran
 }
 
 // FindByRoomID ルームの文字起こし一覧を取得
-func (r *mysqlCallTranscriptionRepository) FindByRoomID(ctx context.Context, roomID int64) ([]*entity.CallTranscription, error) {
+func (r *MySQLCallTranscriptionRepository) FindByRoomID(ctx context.Context, roomID int64) ([]*entity.CallTranscription, error) {
 	query := `
 		SELECT id, room_id, recording_id, speaker_tag, text, confidence, start_time, end_time, language, created_at, updated_at
 		FROM call_transcriptions

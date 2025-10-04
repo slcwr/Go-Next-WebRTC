@@ -14,12 +14,12 @@ import (
 
 // TodoHandler はTodoのHTTPハンドラー
 type TodoHandler struct {
-	usecase *usecase.TodoUsecase
+	usecase usecase.TodoUsecase
 }
 
 // NewTodoHandler はTodoHandlerのコンストラクタ
-func NewTodoHandler(usecase *usecase.TodoUsecase) *TodoHandler {
-	return &TodoHandler{usecase: usecase}
+func NewTodoHandler(uc usecase.TodoUsecase) *TodoHandler {
+	return &TodoHandler{usecase: uc}
 }
 
 // GetTodos は全てのTodoを取得する

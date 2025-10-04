@@ -5,12 +5,12 @@ import (
 	"strings"
 
 	"Go-Next-WebRTC/internal/adapter/http/middleware"
-	"Go-Next-WebRTC/internal/app"
+	"Go-Next-WebRTC/internal/adapter/http/types"
 	"Go-Next-WebRTC/internal/domain/port"
 )
 
 // NewRouter ルーターを作成
-func NewRouter(handlers *app.Handlers, authRepo port.AuthRepository) http.Handler {
+func NewRouter(handlers *types.Handlers, authRepo port.AuthRepository) http.Handler {
 	mux := http.NewServeMux()
 
 	// ヘルスチェック
@@ -58,7 +58,7 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleTodos Todoリスト処理
-func handleTodos(handlers *app.Handlers) http.HandlerFunc {
+func handleTodos(handlers *types.Handlers) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -72,7 +72,7 @@ func handleTodos(handlers *app.Handlers) http.HandlerFunc {
 }
 
 // handleTodoItem 個別Todo処理
-func handleTodoItem(handlers *app.Handlers) http.HandlerFunc {
+func handleTodoItem(handlers *types.Handlers) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -88,7 +88,7 @@ func handleTodoItem(handlers *app.Handlers) http.HandlerFunc {
 }
 
 // handleCallRooms コールルーム処理
-func handleCallRooms(handlers *app.Handlers) http.HandlerFunc {
+func handleCallRooms(handlers *types.Handlers) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/join") {
 			methodFilter(http.MethodPost, handlers.CallHandler.JoinRoom)(w, r)

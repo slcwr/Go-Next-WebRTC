@@ -6,19 +6,21 @@ import (
 	"errors"
 
 	"Go-Next-WebRTC/internal/domain/entity"
+	"Go-Next-WebRTC/internal/domain/port"
+	"Go-Next-WebRTC/pkg/database"
 )
 
-type mysqlCallRoomRepository struct {
-	db *sql.DB
+type MySQLCallRoomRepository struct {
+	db *database.MySQL
 }
 
 // NewMySQLCallRoomRepository 新しいCallRoomリポジトリを作成
-func NewMySQLCallRoomRepository(db *sql.DB) *mysqlCallRoomRepository {
-	return &mysqlCallRoomRepository{db: db}
+func NewMySQLCallRoomRepository(db *database.MySQL) port.CallRoomRepository {
+	return &MySQLCallRoomRepository{db: db}
 }
 
 // Create 通話ルームを作成
-func (r *mysqlCallRoomRepository) Create(ctx context.Context, room *entity.CallRoom) error {
+func (r *MySQLCallRoomRepository) Create(ctx context.Context, room *entity.CallRoom) error {
 	query := `
 		INSERT INTO call_rooms (room_id, name, created_by, status, max_participants)
 		VALUES (?, ?, ?, ?, ?)
@@ -44,7 +46,7 @@ func (r *mysqlCallRoomRepository) Create(ctx context.Context, room *entity.CallR
 }
 
 // FindByRoomID room_idで通話ルームを取得
-func (r *mysqlCallRoomRepository) FindByRoomID(ctx context.Context, roomID string) (*entity.CallRoom, error) {
+func (r *MySQLCallRoomRepository) FindByRoomID(ctx context.Context, roomID string) (*entity.CallRoom, error) {
 	query := `
 		SELECT id, room_id, name, created_by, status, started_at, ended_at, max_participants, created_at, updated_at
 		FROM call_rooms
@@ -75,7 +77,7 @@ func (r *mysqlCallRoomRepository) FindByRoomID(ctx context.Context, roomID strin
 }
 
 // FindByID IDで通話ルームを取得
-func (r *mysqlCallRoomRepository) FindByID(ctx context.Context, id int64) (*entity.CallRoom, error) {
+func (r *MySQLCallRoomRepository) FindByID(ctx context.Context, id int64) (*entity.CallRoom, error) {
 	query := `
 		SELECT id, room_id, name, created_by, status, started_at, ended_at, max_participants, created_at, updated_at
 		FROM call_rooms
@@ -106,7 +108,7 @@ func (r *mysqlCallRoomRepository) FindByID(ctx context.Context, id int64) (*enti
 }
 
 // Update 通話ルームを更新
-func (r *mysqlCallRoomRepository) Update(ctx context.Context, room *entity.CallRoom) error {
+func (r *MySQLCallRoomRepository) Update(ctx context.Context, room *entity.CallRoom) error {
 	query := `
 		UPDATE call_rooms
 		SET status = ?, started_at = ?, ended_at = ?, updated_at = CURRENT_TIMESTAMP
@@ -122,7 +124,7 @@ func (r *mysqlCallRoomRepository) Update(ctx context.Context, room *entity.CallR
 }
 
 // FindByCreatedBy ユーザーが作成した通話ルーム一覧を取得
-func (r *mysqlCallRoomRepository) FindByCreatedBy(ctx context.Context, userID int64) ([]*entity.CallRoom, error) {
+func (r *MySQLCallRoomRepository) FindByCreatedBy(ctx context.Context, userID int64) ([]*entity.CallRoom, error) {
 	query := `
 		SELECT id, room_id, name, created_by, status, started_at, ended_at, max_participants, created_at, updated_at
 		FROM call_rooms

@@ -6,10 +6,12 @@ import (
 
 	"Go-Next-WebRTC/internal/adapter/http/handler"
 	"Go-Next-WebRTC/internal/adapter/http/middleware"
+	"Go-Next-WebRTC/internal/adapter/http/types"
 	"Go-Next-WebRTC/internal/adapter/repository"
 	"Go-Next-WebRTC/internal/adapter/websocket"
 	"Go-Next-WebRTC/internal/application/usecase"
 	"Go-Next-WebRTC/internal/config"
+	"Go-Next-WebRTC/internal/domain/port"
 	"Go-Next-WebRTC/pkg/database"
 	"Go-Next-WebRTC/pkg/email"
 	jwtpkg "Go-Next-WebRTC/pkg/jwt"
@@ -63,21 +65,32 @@ func initializeInfrastructure(ctx context.Context, cfg *config.Config) (*databas
 		return nil, nil, nil, err
 	}
 
-	// GCS Client
-	gcsClient, err := storage.NewGCSClient(ctx, cfg.GCSBucketName, cfg.GoogleApplicationCredentials)
-	if err != nil {
-		slog.Error("Failed to create GCS client", slog.String("error", err.Error()))
-		db.Close()
-		return nil, nil, nil, err
+	// GCS Client (オプショナル - 開発環境では不要)
+	var gcsClient *storage.GCSClient
+	if cfg.GCSBucketName != "" && cfg.GoogleApplicationCredentials != "" {
+		gcsClient, err = storage.NewGCSClient(ctx, cfg.GCSBucketName, cfg.GoogleApplicationCredentials)
+		if err != nil {
+			slog.Warn("Failed to create GCS client (optional)", slog.String("error", err.Error()))
+			gcsClient = nil
+		} else {
+			slog.Info("GCS client initialized successfully")
+		}
+	} else {
+		slog.Info("GCS client not configured (skipping)")
 	}
 
-	// Speech-to-Text Client
-	speechClient, err := transcription.NewSpeechToTextClient(ctx, cfg.GoogleApplicationCredentials)
-	if err != nil {
-		slog.Error("Failed to create speech client", slog.String("error", err.Error()))
-		db.Close()
-		gcsClient.Close()
-		return nil, nil, nil, err
+	// Speech-to-Text Client (オプショナル - 開発環境では不要)
+	var speechClient *transcription.SpeechToTextClient
+	if cfg.GoogleApplicationCredentials != "" {
+		speechClient, err = transcription.NewSpeechToTextClient(ctx, cfg.GoogleApplicationCredentials)
+		if err != nil {
+			slog.Warn("Failed to create speech client (optional)", slog.String("error", err.Error()))
+			speechClient = nil
+		} else {
+			slog.Info("Speech-to-Text client initialized successfully")
+		}
+	} else {
+		slog.Info("Speech-to-Text client not configured (skipping)")
 	}
 
 	return db, gcsClient, speechClient, nil
@@ -85,6 +98,12 @@ func initializeInfrastructure(ctx context.Context, cfg *config.Config) (*databas
 
 // initializeEmailClient メールクライアントの初期化
 func initializeEmailClient(cfg *config.Config) *email.SMTPClient {
+	// SMTP設定がない場合はnilを返す（開発環境ではオプショナル）
+	if cfg.SMTPHost == "" || cfg.SMTPPort == "" {
+		slog.Info("SMTP client not configured (skipping)")
+		return nil
+	}
+
 	emailConfig := &email.SMTPConfig{
 		Host:     cfg.SMTPHost,
 		Port:     cfg.SMTPPort,
@@ -92,24 +111,26 @@ func initializeEmailClient(cfg *config.Config) *email.SMTPClient {
 		Password: cfg.SMTPPassword,
 		FromName: cfg.SMTPFromName,
 	}
-	return email.NewSMTPClient(emailConfig)
+	client := email.NewSMTPClient(emailConfig)
+	slog.Info("SMTP client initialized successfully")
+	return client
 }
 
-// Repositories リポジトリの集約
-type Repositories struct {
-	Todo              *repository.MySQLTodoRepository
-	User              *repository.MySQLUserRepository
-	Auth              *repository.MySQLAuthRepository
-	CallRoom          *repository.MySQLCallRoomRepository
-	CallParticipant   *repository.MySQLCallParticipantRepository
-	CallRecording     *repository.MySQLCallRecordingRepository
-	CallTranscription *repository.MySQLCallTranscriptionRepository
-	CallMinutes       *repository.MySQLCallMinutesRepository
+// repositories リポジトリの集約（内部実装）
+type repositories struct {
+	Todo              port.TodoRepository
+	User              port.UserRepository
+	Auth              port.AuthRepository
+	CallRoom          port.CallRoomRepository
+	CallParticipant   port.CallParticipantRepository
+	CallRecording     port.CallRecordingRepository
+	CallTranscription port.CallTranscriptionRepository
+	CallMinutes       port.CallMinutesRepository
 }
 
 // initializeRepositories リポジトリ層の初期化
-func initializeRepositories(db *database.MySQL) *Repositories {
-	return &Repositories{
+func initializeRepositories(db *database.MySQL) *repositories {
+	return &repositories{
 		Todo:              repository.NewMySQLTodoRepository(db),
 		User:              repository.NewMySQLUserRepository(db),
 		Auth:              repository.NewMySQLAuthRepository(db),
@@ -121,25 +142,25 @@ func initializeRepositories(db *database.MySQL) *Repositories {
 	}
 }
 
-// Usecases ユースケースの集約
-type Usecases struct {
-	Todo      *usecase.TodoUsecase
-	Auth      *usecase.AuthUseCase
-	Call      *usecase.CallUsecase
-	Recording *usecase.RecordingUsecase
+// usecases ユースケースの集約（内部実装）
+type usecases struct {
+	Todo      usecase.TodoUsecase
+	Auth      usecase.AuthUseCase
+	Call      usecase.CallUsecase
+	Recording usecase.RecordingUsecase
 }
 
 // initializeUsecases ユースケース層の初期化
 func initializeUsecases(
 	cfg *config.Config,
-	repos *Repositories,
+	repos *repositories,
 	gcsClient *storage.GCSClient,
 	speechClient *transcription.SpeechToTextClient,
 	emailClient *email.SMTPClient,
-) *Usecases {
+) *usecases {
 	authConfig := usecase.NewAuthConfig(cfg.JWTSecret)
 
-	return &Usecases{
+	return &usecases{
 		Todo: usecase.NewTodoUsecase(repos.Todo),
 		Auth: usecase.NewAuthUseCase(repos.User, repos.Auth, authConfig),
 		Call: usecase.NewCallUsecase(repos.CallRoom, repos.CallParticipant),
@@ -160,11 +181,11 @@ func initializeUsecases(
 
 // initializeHandlers ハンドラー層の初期化
 func initializeHandlers(
-	usecases *Usecases,
+	usecases *usecases,
 	signalingServer *websocket.SignalingServer,
 	authMiddleware *middleware.Auth,
-) *Handlers {
-	return &Handlers{
+) *types.Handlers {
+	return &types.Handlers{
 		TodoHandler:    handler.NewTodoHandler(usecases.Todo),
 		AuthHandler:    handler.NewAuthHandler(usecases.Auth),
 		CallHandler:    handler.NewCallHandler(usecases.Call, usecases.Recording, signalingServer),

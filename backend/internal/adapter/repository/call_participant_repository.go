@@ -6,19 +6,21 @@ import (
 	"errors"
 
 	"Go-Next-WebRTC/internal/domain/entity"
+	"Go-Next-WebRTC/internal/domain/port"
+	"Go-Next-WebRTC/pkg/database"
 )
 
-type mysqlCallParticipantRepository struct {
-	db *sql.DB
+type MySQLCallParticipantRepository struct {
+	db *database.MySQL
 }
 
 // NewMySQLCallParticipantRepository 新しいCallParticipantリポジトリを作成
-func NewMySQLCallParticipantRepository(db *sql.DB) *mysqlCallParticipantRepository {
-	return &mysqlCallParticipantRepository{db: db}
+func NewMySQLCallParticipantRepository(db *database.MySQL) port.CallParticipantRepository {
+	return &MySQLCallParticipantRepository{db: db}
 }
 
 // Create 参加者を作成
-func (r *mysqlCallParticipantRepository) Create(ctx context.Context, participant *entity.CallParticipant) error {
+func (r *MySQLCallParticipantRepository) Create(ctx context.Context, participant *entity.CallParticipant) error {
 	query := `
 		INSERT INTO call_participants (room_id, user_id, is_active)
 		VALUES (?, ?, ?)
@@ -42,7 +44,7 @@ func (r *mysqlCallParticipantRepository) Create(ctx context.Context, participant
 }
 
 // Update 参加者を更新
-func (r *mysqlCallParticipantRepository) Update(ctx context.Context, participant *entity.CallParticipant) error {
+func (r *MySQLCallParticipantRepository) Update(ctx context.Context, participant *entity.CallParticipant) error {
 	query := `
 		UPDATE call_participants
 		SET left_at = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
@@ -57,7 +59,7 @@ func (r *mysqlCallParticipantRepository) Update(ctx context.Context, participant
 }
 
 // FindByRoomID ルームの参加者一覧を取得
-func (r *mysqlCallParticipantRepository) FindByRoomID(ctx context.Context, roomID int64) ([]*entity.CallParticipant, error) {
+func (r *MySQLCallParticipantRepository) FindByRoomID(ctx context.Context, roomID int64) ([]*entity.CallParticipant, error) {
 	query := `
 		SELECT id, room_id, user_id, joined_at, left_at, is_active, created_at, updated_at
 		FROM call_participants
@@ -93,7 +95,7 @@ func (r *mysqlCallParticipantRepository) FindByRoomID(ctx context.Context, roomI
 }
 
 // FindActiveByRoomID ルームのアクティブな参加者を取得
-func (r *mysqlCallParticipantRepository) FindActiveByRoomID(ctx context.Context, roomID int64) ([]*entity.CallParticipant, error) {
+func (r *MySQLCallParticipantRepository) FindActiveByRoomID(ctx context.Context, roomID int64) ([]*entity.CallParticipant, error) {
 	query := `
 		SELECT id, room_id, user_id, joined_at, left_at, is_active, created_at, updated_at
 		FROM call_participants
@@ -129,7 +131,7 @@ func (r *mysqlCallParticipantRepository) FindActiveByRoomID(ctx context.Context,
 }
 
 // FindByRoomIDAndUserID 特定ユーザーの参加記録を取得
-func (r *mysqlCallParticipantRepository) FindByRoomIDAndUserID(ctx context.Context, roomID int64, userID int64) (*entity.CallParticipant, error) {
+func (r *MySQLCallParticipantRepository) FindByRoomIDAndUserID(ctx context.Context, roomID int64, userID int64) (*entity.CallParticipant, error) {
 	query := `
 		SELECT id, room_id, user_id, joined_at, left_at, is_active, created_at, updated_at
 		FROM call_participants

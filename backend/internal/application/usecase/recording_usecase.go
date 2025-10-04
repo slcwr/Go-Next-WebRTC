@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -69,6 +68,11 @@ func NewRecordingUsecase(
 
 // UploadRecording 録音をアップロード
 func (u *recordingUsecase) UploadRecording(ctx context.Context, roomID int64, userID int64, file io.Reader, fileSize int64, duration *int) (*entity.CallRecording, error) {
+	// GCS未設定の場合はエラー
+	if u.gcsClient == nil {
+		return nil, fmt.Errorf("GCS client not configured - recording upload is not available")
+	}
+
 	// GCSにアップロード
 	objectName := fmt.Sprintf("recordings/%d/user-%d-%d.webm", roomID, userID, time.Now().Unix())
 	filePath, err := u.gcsClient.UploadFile(ctx, objectName, file, "audio/webm")
@@ -95,6 +99,11 @@ func (u *recordingUsecase) UploadRecording(ctx context.Context, roomID int64, us
 
 // TranscribeAndCreateMinutes 文字起こしと議事録作成
 func (u *recordingUsecase) TranscribeAndCreateMinutes(ctx context.Context, roomID int64) error {
+	// Speech-to-Text未設定の場合はエラー
+	if u.speechClient == nil {
+		return fmt.Errorf("Speech-to-Text client not configured - transcription is not available")
+	}
+
 	// ルーム情報を取得
 	room, err := u.roomRepo.FindByID(ctx, roomID)
 	if err != nil {
@@ -227,6 +236,12 @@ func (u *recordingUsecase) formatTranscript(transcriptions []*entity.CallTranscr
 
 // sendMinutesEmail 議事録メールを送信
 func (u *recordingUsecase) sendMinutesEmail(ctx context.Context, room *entity.CallRoom, participantIDs []int64, transcript string) error {
+	// Email未設定の場合はスキップ
+	if u.emailClient == nil {
+		slog.Info("Email client not configured - skipping email notification")
+		return nil
+	}
+
 	// 参加者のメールアドレスを取得
 	emails := make([]string, 0)
 	participantNames := make([]string, 0)

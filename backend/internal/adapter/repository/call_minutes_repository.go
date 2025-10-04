@@ -6,19 +6,21 @@ import (
 	"errors"
 
 	"Go-Next-WebRTC/internal/domain/entity"
+	"Go-Next-WebRTC/internal/domain/port"
+	"Go-Next-WebRTC/pkg/database"
 )
 
-type mysqlCallMinutesRepository struct {
-	db *sql.DB
+type MySQLCallMinutesRepository struct {
+	db *database.MySQL
 }
 
 // NewMySQLCallMinutesRepository 新しいCallMinutesリポジトリを作成
-func NewMySQLCallMinutesRepository(db *sql.DB) *mysqlCallMinutesRepository {
-	return &mysqlCallMinutesRepository{db: db}
+func NewMySQLCallMinutesRepository(db *database.MySQL) port.CallMinutesRepository {
+	return &MySQLCallMinutesRepository{db: db}
 }
 
 // Create 議事録を作成
-func (r *mysqlCallMinutesRepository) Create(ctx context.Context, minutes *entity.CallMinutes) error {
+func (r *MySQLCallMinutesRepository) Create(ctx context.Context, minutes *entity.CallMinutes) error {
 	query := `
 		INSERT INTO call_minutes (room_id, title, summary, full_transcript, participants_list, email_sent)
 		VALUES (?, ?, ?, ?, ?, ?)
@@ -45,7 +47,7 @@ func (r *mysqlCallMinutesRepository) Create(ctx context.Context, minutes *entity
 }
 
 // Update 議事録を更新
-func (r *mysqlCallMinutesRepository) Update(ctx context.Context, minutes *entity.CallMinutes) error {
+func (r *MySQLCallMinutesRepository) Update(ctx context.Context, minutes *entity.CallMinutes) error {
 	query := `
 		UPDATE call_minutes
 		SET summary = ?, full_transcript = ?, participants_list = ?, email_sent = ?, email_sent_at = ?, updated_at = CURRENT_TIMESTAMP
@@ -63,7 +65,7 @@ func (r *mysqlCallMinutesRepository) Update(ctx context.Context, minutes *entity
 }
 
 // FindByRoomID ルームの議事録を取得
-func (r *mysqlCallMinutesRepository) FindByRoomID(ctx context.Context, roomID int64) (*entity.CallMinutes, error) {
+func (r *MySQLCallMinutesRepository) FindByRoomID(ctx context.Context, roomID int64) (*entity.CallMinutes, error) {
 	query := `
 		SELECT id, room_id, title, summary, full_transcript, participants_list, email_sent, email_sent_at, created_at, updated_at
 		FROM call_minutes
@@ -94,7 +96,7 @@ func (r *mysqlCallMinutesRepository) FindByRoomID(ctx context.Context, roomID in
 }
 
 // FindByUserID ユーザーの議事録一覧を取得（参加した通話）
-func (r *mysqlCallMinutesRepository) FindByUserID(ctx context.Context, userID int64) ([]*entity.CallMinutes, error) {
+func (r *MySQLCallMinutesRepository) FindByUserID(ctx context.Context, userID int64) ([]*entity.CallMinutes, error) {
 	query := `
 		SELECT DISTINCT m.id, m.room_id, m.title, m.summary, m.full_transcript, m.participants_list, m.email_sent, m.email_sent_at, m.created_at, m.updated_at
 		FROM call_minutes m

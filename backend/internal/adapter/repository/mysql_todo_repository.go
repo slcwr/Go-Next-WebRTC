@@ -5,15 +5,17 @@ import (
 	"database/sql"
 
 	"Go-Next-WebRTC/internal/domain/entity"
+	"Go-Next-WebRTC/internal/domain/port"
+	"Go-Next-WebRTC/pkg/database"
 )
 
 // MySQLTodoRepository はMySQLを使ったTodoRepositoryの実装
 type MySQLTodoRepository struct {
-	db *sql.DB
+	db *database.MySQL
 }
 
 // NewMySQLTodoRepository はMySQLTodoRepositoryのコンストラクタ
-func NewMySQLTodoRepository(db *sql.DB) *MySQLTodoRepository {
+func NewMySQLTodoRepository(db *database.MySQL) port.TodoRepository {
 	return &MySQLTodoRepository{db: db}
 }
 

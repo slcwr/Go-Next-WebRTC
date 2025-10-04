@@ -6,19 +6,21 @@ import (
 	"errors"
 
 	"Go-Next-WebRTC/internal/domain/entity"
+	"Go-Next-WebRTC/internal/domain/port"
+	"Go-Next-WebRTC/pkg/database"
 )
 
-type mysqlCallRecordingRepository struct {
-	db *sql.DB
+type MySQLCallRecordingRepository struct {
+	db *database.MySQL
 }
 
 // NewMySQLCallRecordingRepository 新しいCallRecordingリポジトリを作成
-func NewMySQLCallRecordingRepository(db *sql.DB) *mysqlCallRecordingRepository {
-	return &mysqlCallRecordingRepository{db: db}
+func NewMySQLCallRecordingRepository(db *database.MySQL) port.CallRecordingRepository {
+	return &MySQLCallRecordingRepository{db: db}
 }
 
 // Create 録音を作成
-func (r *mysqlCallRecordingRepository) Create(ctx context.Context, recording *entity.CallRecording) error {
+func (r *MySQLCallRecordingRepository) Create(ctx context.Context, recording *entity.CallRecording) error {
 	query := `
 		INSERT INTO call_recordings (room_id, user_id, file_path, file_size, duration_seconds, format)
 		VALUES (?, ?, ?, ?, ?, ?)
@@ -45,7 +47,7 @@ func (r *mysqlCallRecordingRepository) Create(ctx context.Context, recording *en
 }
 
 // FindByRoomID ルームの録音一覧を取得
-func (r *mysqlCallRecordingRepository) FindByRoomID(ctx context.Context, roomID int64) ([]*entity.CallRecording, error) {
+func (r *MySQLCallRecordingRepository) FindByRoomID(ctx context.Context, roomID int64) ([]*entity.CallRecording, error) {
 	query := `
 		SELECT id, room_id, user_id, file_path, file_size, duration_seconds, format, uploaded_at, created_at, updated_at
 		FROM call_recordings
@@ -83,7 +85,7 @@ func (r *mysqlCallRecordingRepository) FindByRoomID(ctx context.Context, roomID 
 }
 
 // FindByID 録音を取得
-func (r *mysqlCallRecordingRepository) FindByID(ctx context.Context, id int64) (*entity.CallRecording, error) {
+func (r *MySQLCallRecordingRepository) FindByID(ctx context.Context, id int64) (*entity.CallRecording, error) {
 	query := `
 		SELECT id, room_id, user_id, file_path, file_size, duration_seconds, format, uploaded_at, created_at, updated_at
 		FROM call_recordings

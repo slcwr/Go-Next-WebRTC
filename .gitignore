@@ -334,3 +334,15 @@ ASALocalRun/
 out
 pkg
 debug
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Google Cloud credentials
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!jsconfig.json

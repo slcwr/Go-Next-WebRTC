@@ -6,23 +6,31 @@ import (
 	"Go-Next-WebRTC/internal/domain/port"
 )
 
-// TodoUsecase はTodoに関するユースケースを提供する
-type TodoUsecase struct {
+// TodoUsecase はTodoに関するユースケースのインターフェース
+type TodoUsecase interface {
+	GetAllTodos(ctx context.Context, userID int64) ([]*entity.Todo, error)
+	GetTodoByID(ctx context.Context, id int, userID int64) (*entity.Todo, error)
+	CreateTodo(ctx context.Context, userID int64, title, description string) (*entity.Todo, error)
+	UpdateTodo(ctx context.Context, id int, userID int64, title, description *string, completed *bool) (*entity.Todo, error)
+	DeleteTodo(ctx context.Context, id int, userID int64) error
+}
+
+type todoUsecase struct {
 	repo port.TodoRepository
 }
 
 // NewTodoUsecase はTodoUsecaseのコンストラクタ
-func NewTodoUsecase(repo port.TodoRepository) *TodoUsecase {
-	return &TodoUsecase{repo: repo}
+func NewTodoUsecase(repo port.TodoRepository) TodoUsecase {
+	return &todoUsecase{repo: repo}
 }
 
 // GetAllTodos は指定されたユーザーの全てのTodoを取得する
-func (u *TodoUsecase) GetAllTodos(ctx context.Context, userID int64) ([]*entity.Todo, error) {
+func (u *todoUsecase) GetAllTodos(ctx context.Context, userID int64) ([]*entity.Todo, error) {
 	return u.repo.FindAllByUserID(ctx, userID)
 }
 
 // GetTodoByID は指定されたIDとユーザーIDのTodoを取得する
-func (u *TodoUsecase) GetTodoByID(ctx context.Context, id int, userID int64) (*entity.Todo, error) {
+func (u *todoUsecase) GetTodoByID(ctx context.Context, id int, userID int64) (*entity.Todo, error) {
 	if id <= 0 {
 		return nil, entity.ErrTodoNotFound
 	}
@@ -30,7 +38,7 @@ func (u *TodoUsecase) GetTodoByID(ctx context.Context, id int, userID int64) (*e
 }
 
 // CreateTodo は新しいTodoを作成する
-func (u *TodoUsecase) CreateTodo(ctx context.Context, userID int64, title, description string) (*entity.Todo, error) {
+func (u *todoUsecase) CreateTodo(ctx context.Context, userID int64, title, description string) (*entity.Todo, error) {
 	todo := entity.NewTodo(userID, title, description)
 
 	if err := todo.Validate(); err != nil {
@@ -45,7 +53,7 @@ func (u *TodoUsecase) CreateTodo(ctx context.Context, userID int64, title, descr
 }
 
 // UpdateTodo は指定されたIDとユーザーIDのTodoを更新する
-func (u *TodoUsecase) UpdateTodo(ctx context.Context, id int, userID int64, title, description *string, completed *bool) (*entity.Todo, error) {
+func (u *todoUsecase) UpdateTodo(ctx context.Context, id int, userID int64, title, description *string, completed *bool) (*entity.Todo, error) {
 	if id <= 0 {
 		return nil, entity.ErrTodoNotFound
 	}
@@ -82,7 +90,7 @@ func (u *TodoUsecase) UpdateTodo(ctx context.Context, id int, userID int64, titl
 }
 
 // DeleteTodo は指定されたIDとユーザーIDのTodoを削除する
-func (u *TodoUsecase) DeleteTodo(ctx context.Context, id int, userID int64) error {
+func (u *todoUsecase) DeleteTodo(ctx context.Context, id int, userID int64) error {
 	if id <= 0 {
 		return entity.ErrTodoNotFound
 	}

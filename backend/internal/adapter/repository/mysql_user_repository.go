@@ -9,19 +9,20 @@ import (
 
 	"Go-Next-WebRTC/internal/domain/entity"
 	"Go-Next-WebRTC/internal/domain/port"
+	"Go-Next-WebRTC/pkg/database"
 )
 
-type mysqlUserRepository struct {
-	db *sql.DB
+type MySQLUserRepository struct {
+	db *database.MySQL
 }
 
 // NewMySQLUserRepository MySQLを使用したUserRepositoryの生成
-func NewMySQLUserRepository(db *sql.DB) port.UserRepository {
-	return &mysqlUserRepository{db: db}
+func NewMySQLUserRepository(db *database.MySQL) port.UserRepository {
+	return &MySQLUserRepository{db: db}
 }
 
 // Create 新規ユーザー作成
-func (r *mysqlUserRepository) Create(ctx context.Context, user *entity.User) error {
+func (r *MySQLUserRepository) Create(ctx context.Context, user *entity.User) error {
 	query := `
 		INSERT INTO users (
 			email, password_hash, name, avatar_url, bio, 
@@ -59,7 +60,7 @@ func (r *mysqlUserRepository) Create(ctx context.Context, user *entity.User) err
 }
 
 // FindByID IDによるユーザー検索
-func (r *mysqlUserRepository) FindByID(ctx context.Context, id int64) (*entity.User, error) {
+func (r *MySQLUserRepository) FindByID(ctx context.Context, id int64) (*entity.User, error) {
 	user := &entity.User{}
 	query := `
 		SELECT 
@@ -99,7 +100,7 @@ func (r *mysqlUserRepository) FindByID(ctx context.Context, id int64) (*entity.U
 }
 
 // FindByEmail メールアドレスによるユーザー検索
-func (r *mysqlUserRepository) FindByEmail(ctx context.Context, email string) (*entity.User, error) {
+func (r *MySQLUserRepository) FindByEmail(ctx context.Context, email string) (*entity.User, error) {
 	user := &entity.User{}
 	query := `
 		SELECT 
@@ -139,7 +140,7 @@ func (r *mysqlUserRepository) FindByEmail(ctx context.Context, email string) (*e
 }
 
 // Update ユーザー情報更新
-func (r *mysqlUserRepository) Update(ctx context.Context, user *entity.User) error {
+func (r *MySQLUserRepository) Update(ctx context.Context, user *entity.User) error {
 	query := `
 		UPDATE users
 		SET 
@@ -189,7 +190,7 @@ func (r *mysqlUserRepository) Update(ctx context.Context, user *entity.User) err
 }
 
 // Delete ユーザー削除（論理削除）
-func (r *mysqlUserRepository) Delete(ctx context.Context, id int64) error {
+func (r *MySQLUserRepository) Delete(ctx context.Context, id int64) error {
 	query := `
 		UPDATE users 
 		SET is_active = FALSE, updated_at = ? 
@@ -214,7 +215,7 @@ func (r *mysqlUserRepository) Delete(ctx context.Context, id int64) error {
 }
 
 // ExistsByEmail メールアドレスの存在確認
-func (r *mysqlUserRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
+func (r *MySQLUserRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
 	var exists bool
 	query := `
 		SELECT EXISTS(
@@ -232,7 +233,7 @@ func (r *mysqlUserRepository) ExistsByEmail(ctx context.Context, email string) (
 }
 
 // FindAll ユーザー一覧取得（管理者用）
-func (r *mysqlUserRepository) FindAll(ctx context.Context, limit, offset int) ([]*entity.User, error) {
+func (r *MySQLUserRepository) FindAll(ctx context.Context, limit, offset int) ([]*entity.User, error) {
 	query := `
 		SELECT 
 			id, email, password_hash, name,
@@ -284,7 +285,7 @@ func (r *mysqlUserRepository) FindAll(ctx context.Context, limit, offset int) ([
 }
 
 // Count ユーザー数取得
-func (r *mysqlUserRepository) Count(ctx context.Context) (int64, error) {
+func (r *MySQLUserRepository) Count(ctx context.Context) (int64, error) {
 	var count int64
 	query := `SELECT COUNT(*) FROM users WHERE is_active = TRUE`
 	
@@ -297,13 +298,13 @@ func (r *mysqlUserRepository) Count(ctx context.Context) (int64, error) {
 }
 
 // CountActive アクティブユーザー数取得
-func (r *mysqlUserRepository) CountActive(ctx context.Context) (int64, error) {
+func (r *MySQLUserRepository) CountActive(ctx context.Context) (int64, error) {
 	// Note: last_login_atカラムが存在しない場合は通常のカウントを返す
 	return r.Count(ctx)
 }
 
 // UpdateEmailVerified メール検証の更新
-func (r *mysqlUserRepository) UpdateEmailVerified(ctx context.Context, userID int64) error {
+func (r *MySQLUserRepository) UpdateEmailVerified(ctx context.Context, userID int64) error {
 	query := `
 		UPDATE users 
 		SET email_verified_at = ?, updated_at = ? 
