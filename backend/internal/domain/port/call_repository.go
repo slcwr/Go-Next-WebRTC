@@ -13,6 +13,8 @@ type CallRoomRepository interface {
 	FindByRoomID(ctx context.Context, roomID string) (*entity.CallRoom, error)
 	// 通話ルーム取得（IDで検索）
 	FindByID(ctx context.Context, id int64) (*entity.CallRoom, error)
+	// アクティブな通話ルーム一覧取得
+	FindActiveRooms(ctx context.Context) ([]*entity.CallRoom, error)
 	// 通話ルーム更新
 	Update(ctx context.Context, room *entity.CallRoom) error
 	// ユーザーが作成した通話ルーム一覧

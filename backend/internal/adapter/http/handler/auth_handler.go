@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"Go-Next-WebRTC/internal/adapter/http/dto"
+	"Go-Next-WebRTC/internal/adapter/http/middleware"
 	"Go-Next-WebRTC/internal/application/usecase"
 	"Go-Next-WebRTC/internal/domain/entity"
 )
@@ -356,9 +357,13 @@ func (h *AuthHandler) RevokeAllSessions(w http.ResponseWriter, r *http.Request) 
 // ヘルパーメソッド
 
 func (h *AuthHandler) getUserIDFromContext(r *http.Request) int64 {
-	userID, ok := r.Context().Value("userID").(int64)
+	userID, ok := r.Context().Value("user_id").(int64)
 	if !ok {
-		return 0
+		// 新しいミドルウェアのキーも試す
+		userID, ok = middleware.GetUserIDFromContext(r.Context())
+		if !ok {
+			return 0
+		}
 	}
 	return userID
 }

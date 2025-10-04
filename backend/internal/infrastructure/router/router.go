@@ -32,11 +32,11 @@ func NewRouter(handlers *types.Handlers, authRepo port.AuthRepository) http.Hand
 	mux.HandleFunc("/api/todos/", handlers.AuthMiddleware.Middleware(handleTodoItem(handlers)))
 
 	// Call API（認証必須）
-	mux.HandleFunc("/api/calls/rooms", handlers.AuthMiddleware.Middleware(methodFilter(http.MethodPost, handlers.CallHandler.CreateRoom)))
+	mux.HandleFunc("/api/calls/rooms", handlers.AuthMiddleware.Middleware(handleCallRoomsRoot(handlers)))
 	mux.HandleFunc("/api/calls/rooms/", handlers.AuthMiddleware.Middleware(handleCallRooms(handlers)))
 
-	// WebSocketシグナリングエンドポイント（認証必須）
-	mux.HandleFunc("/ws/signaling/", handlers.AuthMiddleware.Middleware(handlers.CallHandler.HandleSignaling))
+	// WebSocketシグナリングエンドポイント（認証はクエリパラメータで行う）
+	mux.HandleFunc("/ws/signaling/", handlers.CallHandler.HandleSignaling)
 
 	// ミドルウェアの適用
 	var handler http.Handler = mux
@@ -87,6 +87,20 @@ func handleTodoItem(handlers *types.Handlers) http.HandlerFunc {
 	}
 }
 
+// handleCallRoomsRoot /api/calls/rooms のルート処理
+func handleCallRoomsRoot(handlers *types.Handlers) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handlers.CallHandler.GetActiveRooms(w, r)
+		case http.MethodPost:
+			handlers.CallHandler.CreateRoom(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}
+}
+
 // handleCallRooms コールルーム処理
 func handleCallRooms(handlers *types.Handlers) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +115,15 @@ func handleCallRooms(handlers *types.Handlers) http.HandlerFunc {
 		} else if strings.HasSuffix(r.URL.Path, "/minutes") {
 			methodFilter(http.MethodGet, handlers.CallHandler.GetMinutes)(w, r)
 		} else {
-			methodFilter(http.MethodGet, handlers.CallHandler.GetRoom)(w, r)
+			// ルームIDのみのパス: GET(取得) or DELETE(削除)
+			switch r.Method {
+			case http.MethodGet:
+				handlers.CallHandler.GetRoom(w, r)
+			case http.MethodDelete:
+				handlers.CallHandler.DeleteRoom(w, r)
+			default:
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
 		}
 	}
 }

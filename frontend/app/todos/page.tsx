@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTodos } from '@/lib/hooks/useTodos';
+import Navigation from '@/components/Navigation';
 import type { Todo } from '@/lib/types';
 
 const todoSchema = z.object({
@@ -85,24 +86,7 @@ function TodoList() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">Todo List</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700">こんにちは、{user?.name}さん</span>
-              <button
-                onClick={() => logout()}
-                className="text-sm text-gray-700 hover:text-gray-900"
-              >
-                ログアウト
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navigation />
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">

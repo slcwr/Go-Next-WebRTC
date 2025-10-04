@@ -35,6 +35,7 @@ func (a *Auth) Middleware(next http.HandlerFunc) http.HandlerFunc {
 		// Authorizationヘッダーからトークンを取得
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
+			println("[AUTH] Missing Authorization header for", r.URL.Path)
 			respondWithError(w, http.StatusUnauthorized, "Authorization header required")
 			return
 		}
@@ -42,6 +43,7 @@ func (a *Auth) Middleware(next http.HandlerFunc) http.HandlerFunc {
 		// Bearer トークンを抽出
 		tokenString := extractBearerToken(authHeader)
 		if tokenString == "" {
+			println("[AUTH] Invalid Bearer token format for", r.URL.Path)
 			respondWithError(w, http.StatusUnauthorized, "Invalid authorization header format")
 			return
 		}
@@ -49,9 +51,12 @@ func (a *Auth) Middleware(next http.HandlerFunc) http.HandlerFunc {
 		// トークンを検証
 		claims, err := a.jwtService.ValidateAccessToken(tokenString)
 		if err != nil {
+			println("[AUTH] Token validation failed for", r.URL.Path, ":", err.Error())
 			respondWithError(w, http.StatusUnauthorized, "Invalid or expired token")
 			return
 		}
+
+		println("[AUTH] Authentication successful for user", claims.UserID, "at", r.URL.Path)
 
 		// コンテキストにユーザー情報を設定
 		ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)

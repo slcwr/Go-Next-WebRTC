@@ -45,7 +45,7 @@ func initializeDependencies(cfg *config.Config) (*Dependencies, error) {
 	go signalingServer.Run()
 
 	// ハンドラー層の初期化
-	handlers := initializeHandlers(usecases, signalingServer, authMiddleware)
+	handlers := initializeHandlers(usecases, signalingServer, authMiddleware, jwtService)
 
 	return &Dependencies{
 		DB:           db,
@@ -184,11 +184,12 @@ func initializeHandlers(
 	usecases *usecases,
 	signalingServer *websocket.SignalingServer,
 	authMiddleware *middleware.Auth,
+	jwtService *jwtpkg.Service,
 ) *types.Handlers {
 	return &types.Handlers{
 		TodoHandler:    handler.NewTodoHandler(usecases.Todo),
 		AuthHandler:    handler.NewAuthHandler(usecases.Auth),
-		CallHandler:    handler.NewCallHandler(usecases.Call, usecases.Recording, signalingServer),
+		CallHandler:    handler.NewCallHandler(usecases.Call, usecases.Recording, signalingServer, jwtService),
 		AuthMiddleware: authMiddleware,
 	}
 }

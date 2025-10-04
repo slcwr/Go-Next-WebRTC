@@ -15,6 +15,8 @@ type CallUsecase interface {
 	CreateRoom(ctx context.Context, room *entity.CallRoom) error
 	// 通話ルーム取得
 	GetRoomByRoomID(ctx context.Context, roomID string) (*entity.CallRoom, error)
+	// アクティブなルーム一覧取得
+	GetActiveRooms(ctx context.Context) ([]*entity.CallRoom, error)
 	// 通話ルームに参加
 	JoinRoom(ctx context.Context, participant *entity.CallParticipant) error
 	// 通話ルームから退出
@@ -51,6 +53,11 @@ func (u *callUsecase) GetRoomByRoomID(ctx context.Context, roomID string) (*enti
 	return u.roomRepo.FindByRoomID(ctx, roomID)
 }
 
+// GetActiveRooms アクティブなルーム一覧を取得
+func (u *callUsecase) GetActiveRooms(ctx context.Context) ([]*entity.CallRoom, error) {
+	return u.roomRepo.FindActiveRooms(ctx)
+}
+
 // JoinRoom 通話ルームに参加
 func (u *callUsecase) JoinRoom(ctx context.Context, participant *entity.CallParticipant) error {
 	// 既に参加しているか確認
@@ -64,8 +71,8 @@ func (u *callUsecase) JoinRoom(ctx context.Context, participant *entity.CallPart
 			existing.LeftAt = nil
 			return u.participantRepo.Update(ctx, existing)
 		}
-		// 既にアクティブな場合はエラー
-		return errors.New("already joined")
+		// 既にアクティブな場合は成功を返す（冪等性）
+		return nil
 	}
 
 	// 新規参加

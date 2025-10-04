@@ -107,6 +107,44 @@ func (r *MySQLCallRoomRepository) FindByID(ctx context.Context, id int64) (*enti
 	return room, nil
 }
 
+// FindActiveRooms アクティブな通話ルーム一覧を取得
+func (r *MySQLCallRoomRepository) FindActiveRooms(ctx context.Context) ([]*entity.CallRoom, error) {
+	query := `
+		SELECT id, room_id, name, created_by, status, started_at, ended_at, max_participants, created_at, updated_at
+		FROM call_rooms
+		WHERE status IN ('waiting', 'active')
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var rooms []*entity.CallRoom
+	for rows.Next() {
+		room := &entity.CallRoom{}
+		err := rows.Scan(
+			&room.ID,
+			&room.RoomID,
+			&room.Name,
+			&room.CreatedBy,
+			&room.Status,
+			&room.StartedAt,
+			&room.EndedAt,
+			&room.MaxParticipants,
+			&room.CreatedAt,
+			&room.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		rooms = append(rooms, room)
+	}
+
+	return rooms, rows.Err()
+}
+
 // Update 通話ルームを更新
 func (r *MySQLCallRoomRepository) Update(ctx context.Context, room *entity.CallRoom) error {
 	query := `

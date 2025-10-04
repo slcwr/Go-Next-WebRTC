@@ -12,9 +12,11 @@ import (
 	"github.com/google/uuid"
 
 	"Go-Next-WebRTC/internal/adapter/http/dto"
+	"Go-Next-WebRTC/internal/adapter/http/middleware"
 	"Go-Next-WebRTC/internal/adapter/websocket"
 	"Go-Next-WebRTC/internal/application/usecase"
 	"Go-Next-WebRTC/internal/domain/entity"
+	"Go-Next-WebRTC/pkg/jwt"
 )
 
 // CallHandler 通話関連のHTTPハンドラー
@@ -22,6 +24,7 @@ type CallHandler struct {
 	callUsecase       usecase.CallUsecase
 	recordingUsecase  usecase.RecordingUsecase
 	signalingServer   *websocket.SignalingServer
+	jwtService        *jwt.Service
 }
 
 // NewCallHandler 新しい通話ハンドラーを作成
@@ -29,11 +32,13 @@ func NewCallHandler(
 	callUsecase usecase.CallUsecase,
 	recordingUsecase usecase.RecordingUsecase,
 	signalingServer *websocket.SignalingServer,
+	jwtService *jwt.Service,
 ) *CallHandler {
 	return &CallHandler{
 		callUsecase:      callUsecase,
 		recordingUsecase: recordingUsecase,
 		signalingServer:  signalingServer,
+		jwtService:       jwtService,
 	}
 }
 
@@ -47,7 +52,7 @@ func (h *CallHandler) CreateRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ユーザーIDをコンテキストから取得
-	userID, ok := r.Context().Value("user_id").(int64)
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -82,6 +87,11 @@ func (h *CallHandler) CreateRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	slog.Info("Room created successfully",
+		slog.String("room_id", roomID),
+		slog.String("name", req.Name),
+		slog.Int64("created_by", userID))
+
 	// レスポンス
 	resp := dto.CreateRoomResponse{
 		RoomID:    roomID,
@@ -91,6 +101,44 @@ func (h *CallHandler) CreateRoom(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+// GetActiveRooms アクティブなルーム一覧を取得
+func (h *CallHandler) GetActiveRooms(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// アクティブなルームを取得（status='active'または'waiting'）
+	rooms, err := h.callUsecase.GetActiveRooms(ctx)
+	if err != nil {
+		slog.Error("Failed to get active rooms", slog.String("error", err.Error()))
+		http.Error(w, "Failed to get rooms", http.StatusInternalServerError)
+		return
+	}
+
+	// レスポンスを構築
+	response := make([]map[string]interface{}, len(rooms))
+	for i, room := range rooms {
+		// 参加者数を取得
+		participants, err := h.callUsecase.GetActiveParticipants(ctx, room.ID)
+		participantCount := 0
+		if err == nil {
+			participantCount = len(participants)
+		}
+
+		response[i] = map[string]interface{}{
+			"id":               room.RoomID,
+			"name":             room.Name,
+			"createdBy":        room.CreatedBy,
+			"createdAt":        room.CreatedAt,
+			"maxParticipants":  room.MaxParticipants,
+			"isActive":         room.Status == entity.CallRoomStatusActive,
+			"participantCount": participantCount,
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 // GetRoom 通話ルーム情報を取得
@@ -135,14 +183,13 @@ func (h *CallHandler) GetRoom(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-// JoinRoom 通話ルームに参加
-func (h *CallHandler) JoinRoom(w http.ResponseWriter, r *http.Request) {
+// DeleteRoom 通話ルームを削除
+func (h *CallHandler) DeleteRoom(w http.ResponseWriter, r *http.Request) {
 	// URLからroom_idを取得
-	path := strings.TrimPrefix(r.URL.Path, "/api/calls/rooms/")
-	roomID := strings.TrimSuffix(path, "/join")
+	roomID := strings.TrimPrefix(r.URL.Path, "/api/calls/rooms/")
 
 	// ユーザーIDをコンテキストから取得
-	userID, ok := r.Context().Value("user_id").(int64)
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -151,13 +198,74 @@ func (h *CallHandler) JoinRoom(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// ルーム存在確認
+	// ルームを取得
 	room, err := h.callUsecase.GetRoomByRoomID(ctx, roomID)
 	if err != nil {
 		slog.Error("Failed to get room", slog.String("error", err.Error()))
 		http.Error(w, "Room not found", http.StatusNotFound)
 		return
 	}
+
+	// ルームの作成者のみが削除可能
+	if room.CreatedBy != userID {
+		http.Error(w, "Forbidden: only room creator can delete", http.StatusForbidden)
+		return
+	}
+
+	// ルームのステータスを終了に変更
+	room.Status = entity.CallRoomStatusEnded
+	now := time.Now()
+	room.EndedAt = &now
+
+	if err := h.callUsecase.UpdateRoomStatus(ctx, room); err != nil {
+		slog.Error("Failed to delete room", slog.String("error", err.Error()))
+		http.Error(w, "Failed to delete room", http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("Room deleted", slog.String("room_id", roomID), slog.Int64("user_id", userID))
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "Room deleted successfully"})
+}
+
+// JoinRoom 通話ルームに参加
+func (h *CallHandler) JoinRoom(w http.ResponseWriter, r *http.Request) {
+	// URLからroom_idを取得
+	path := strings.TrimPrefix(r.URL.Path, "/api/calls/rooms/")
+	roomID := strings.TrimSuffix(path, "/join")
+
+	slog.Info("JoinRoom request",
+		slog.String("room_id", roomID),
+		slog.String("path", r.URL.Path))
+
+	// ユーザーIDをコンテキストから取得
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		slog.Error("Failed to get user ID from context")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	slog.Info("User authenticated", slog.Int64("user_id", userID))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// ルーム存在確認
+	room, err := h.callUsecase.GetRoomByRoomID(ctx, roomID)
+	if err != nil {
+		slog.Error("Failed to get room",
+			slog.String("room_id", roomID),
+			slog.String("error", err.Error()))
+		http.Error(w, "Room not found", http.StatusNotFound)
+		return
+	}
+
+	slog.Info("Room found",
+		slog.Int64("room.ID", room.ID),
+		slog.String("room.RoomID", room.RoomID),
+		slog.String("room.Status", string(room.Status)))
 
 	// ルームが終了していないか確認
 	if room.Status == entity.CallRoomStatusEnded {
@@ -204,7 +312,7 @@ func (h *CallHandler) LeaveRoom(w http.ResponseWriter, r *http.Request) {
 	roomID := strings.TrimSuffix(path, "/leave")
 
 	// ユーザーIDをコンテキストから取得
-	userID, ok := r.Context().Value("user_id").(int64)
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -241,12 +349,22 @@ func (h *CallHandler) HandleSignaling(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/ws/signaling/")
 	roomID := path
 
-	// ユーザーIDをコンテキストから取得
-	userID, ok := r.Context().Value("user_id").(int64)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	// クエリパラメータからトークンを取得
+	tokenString := r.URL.Query().Get("token")
+	if tokenString == "" {
+		http.Error(w, "Token required", http.StatusUnauthorized)
 		return
 	}
+
+	// トークンを検証
+	claims, err := h.jwtService.ValidateAccessToken(tokenString)
+	if err != nil {
+		slog.Error("Token validation failed", slog.String("error", err.Error()))
+		http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
+		return
+	}
+
+	userID := claims.UserID
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -279,7 +397,7 @@ func (h *CallHandler) UploadRecording(w http.ResponseWriter, r *http.Request) {
 	roomID := strings.TrimSuffix(path, "/recordings")
 
 	// ユーザーIDをコンテキストから取得
-	userID, ok := r.Context().Value("user_id").(int64)
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return

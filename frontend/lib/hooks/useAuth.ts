@@ -17,7 +17,7 @@ export function useAuth() {
       // ユーザー情報をキャッシュに設定
       queryClient.setQueryData(['user'], data.user);
       // 状態が確実に更新された後にリダイレクト
-      setTimeout(() => router.push('/todos'), 100);
+      setTimeout(() => router.push('/calls'), 100);
     },
   });
 
@@ -29,7 +29,7 @@ export function useAuth() {
       // ユーザー情報をキャッシュに設定
       queryClient.setQueryData(['user'], data.user);
       // 状態が確実に更新された後にリダイレクト
-      setTimeout(() => router.push('/todos'), 100);
+      setTimeout(() => router.push('/calls'), 100);
     },
   });
 
