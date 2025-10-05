@@ -29,6 +29,25 @@ export default function CallRoomPage() {
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordingStartTimeRef = useRef<number>(0);
 
+  // 参加者数に応じたグリッドレイアウトを計算
+  const getGridLayout = () => {
+    const totalParticipants = remotePeers.length + 1; // +1 for local video
+
+    if (totalParticipants === 1) {
+      return 'grid-cols-1';
+    } else if (totalParticipants === 2) {
+      return 'grid-cols-1 md:grid-cols-2';
+    } else if (totalParticipants <= 4) {
+      return 'grid-cols-2';
+    } else if (totalParticipants <= 6) {
+      return 'grid-cols-2 md:grid-cols-3';
+    } else if (totalParticipants <= 9) {
+      return 'grid-cols-3';
+    } else {
+      return 'grid-cols-3 md:grid-cols-4';
+    }
+  };
+
   useEffect(() => {
     initializeCall();
 
@@ -54,13 +73,14 @@ export default function CallRoomPage() {
 
       // WebRTCマネージャーを初期化
       const manager = new WebRTCManager(roomId, clientIdRef.current);
+      console.log('WebRTCManager initialized:', manager);
       webrtcManagerRef.current = manager;
 
       // イベントハンドラーを設定
       manager.onRemoteStream = (peerId, stream) => {
         console.log('Remote stream received from:', peerId);
         setRemotePeers(prev => {
-          // 既存のピアを更新または新規追加
+          // 既存のピアを更新または新規追加f
           const existingIndex = prev.findIndex(p => p.id === peerId);
           if (existingIndex >= 0) {
             const updated = [...prev];
@@ -96,6 +116,7 @@ export default function CallRoomPage() {
       }
 
       setIsConnected(true);
+      console.log('IsConnected:', isConnected);
     } catch (err) {
       console.error('Failed to initialize call:', err);
       setError(err instanceof Error ? err.message : 'Failed to initialize call');
@@ -278,10 +299,10 @@ export default function CallRoomPage() {
       </div>
 
       {/* ビデオグリッド */}
-      <div className="container mx-auto p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="h-[calc(100vh-8rem)] p-4">
+        <div className={`grid ${getGridLayout()} gap-4 h-full w-full`}>
           {/* ローカルビデオ */}
-          <div className="relative bg-gray-800 rounded-lg overflow-hidden aspect-video">
+          <div className="relative bg-gray-800 rounded-lg overflow-hidden">
             <video
               ref={localVideoRef}
               autoPlay
@@ -380,7 +401,7 @@ function RemoteVideo({ peer }: { peer: RemotePeer }) {
   }, [peer.stream]);
 
   return (
-    <div className="relative bg-gray-800 rounded-lg overflow-hidden aspect-video">
+    <div className="relative bg-gray-800 rounded-lg overflow-hidden">
       <video
         ref={videoRef}
         autoPlay

@@ -76,6 +76,8 @@ export default function CallsPage() {
   const handleJoinRoom = async (roomId: string) => {
     try {
       await joinRoom(roomId);
+      // バックエンドでの参加処理完了を待つ
+      await new Promise(resolve => setTimeout(resolve, 300));
       router.push(`/calls/${roomId}`);
     } catch (err) {
       console.error('Failed to join room:', err);

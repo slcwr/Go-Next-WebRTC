@@ -32,11 +32,20 @@ export class SignalingClient {
       const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
       const url = `${wsUrl}/ws/signaling/${this.roomId}?token=${encodeURIComponent(token)}`;
 
+      // 接続タイムアウト (10秒)
+      const timeout = setTimeout(() => {
+        if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+          this.ws.close();
+          reject(new Error('WebSocket connection timeout'));
+        }
+      }, 10000);
+
       this.ws = new WebSocket(url);
 
       // 認証トークンをヘッダーに追加できないため、接続後に送信
       this.ws.onopen = () => {
         console.log('WebSocket connected');
+        clearTimeout(timeout);
         this.reconnectAttempts = 0;
 
         // 認証情報を送信
@@ -63,11 +72,13 @@ export class SignalingClient {
 
       this.ws.onerror = (error) => {
         console.error('WebSocket error:', error);
+        clearTimeout(timeout);
         reject(error);
       };
 
       this.ws.onclose = () => {
         console.log('WebSocket closed');
+        clearTimeout(timeout);
         this.handleReconnect();
       };
     });

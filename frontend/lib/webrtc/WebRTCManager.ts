@@ -85,8 +85,20 @@ export class WebRTCManager {
   /**
    * 接続を開始
    */
-  async connect(token: string): Promise<void> {
-    await this.signalingClient.connect(token);
+  async connect(token: string, retries: number = 3): Promise<void> {
+    for (let i = 0; i < retries; i++) {
+      try {
+        await this.signalingClient.connect(token);
+        return;
+      } catch (error) {
+        console.error(`WebSocket connection attempt ${i + 1} failed:`, error);
+        if (i === retries - 1) {
+          throw error;
+        }
+        // 指数バックオフで待機
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+      }
+    }
   }
 
   /**
